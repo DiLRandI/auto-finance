@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Auto Finance Application
+
+  This template defines the resources for the Auto Finance application.
+  It includes Lambda functions, API Gateway, and other necessary components.
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Runtime: provided.al2023
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        LOG_LEVEL: debug
+
+Resources:
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  LogAutoFinanceFunctionLogGroup:
+    DeletionPolicy: Delete
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AutoFinanceFunction}"
+      RetentionInDays: 14
+
+  AutoFinanceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../bin/auto-finance.zip
+      Handler: bootstrap
+      LoggingConfig:
+        LogGroupName: !Ref LogAutoFinanceFunctionLogGroup
+      Events:
+        CalculateFinance:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /calculate
+            Method: post
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway URL"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
+
+  ApiGateway:
+    Value: !Ref ApiGateway
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiGateway"
+
+  AutoFinanceFunctionArn:
+    Description: "Auto Finance Lambda Function ARN"
+    Value: !GetAtt AutoFinanceFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-AutoFinanceFunction"
