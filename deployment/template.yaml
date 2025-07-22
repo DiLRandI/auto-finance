@@ -50,6 +50,14 @@ Resources:
             Path: /calculate
             Method: post
 
+  SheetKey:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /af/gsheet/key
+      Type: String
+      Value: "TO BE FILLED"
+      Description: Key for access google sheet api
+
 Outputs:
   ApiUrl:
     Description: "API Gateway URL"
