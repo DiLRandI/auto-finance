@@ -111,6 +111,10 @@ func (*parser) Parse(sms string) (*models.ElectricityBill, error) {
 		}
 	}
 
+	if err := validateBill(bill); err != nil {
+		return nil, fmt.Errorf("failed to validate bill: %w", err)
+	}
+
 	return bill, parseErr
 }
 
@@ -243,4 +247,30 @@ func parsePayment(s string) (float64, time.Time, error) {
 	}
 
 	return amount, date, err
+}
+
+func validateBill(bill *models.ElectricityBill) error {
+	if bill.AccountNumber == "" {
+		return errors.New("account number is required")
+	}
+	if bill.ReadOn.IsZero() {
+		return errors.New("read date is required")
+	}
+	if bill.ImportUnits < 0 {
+		return errors.New("import units must be non-negative")
+	}
+	if bill.ExportUnits < 0 {
+		return errors.New("export units must be non-negative")
+	}
+	if bill.MonthlyBill < 0 {
+		return errors.New("monthly bill must be non-negative")
+	}
+	if bill.OpeningBalance < 0 {
+		return errors.New("opening balance must be non-negative")
+	}
+	if bill.TotalPayable < 0 {
+		return errors.New("total payable must be non-negative")
+	}
+
+	return nil
 }
