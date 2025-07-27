@@ -311,17 +311,6 @@ Monthly Bill: Rs. -500.00`,
 				assert.Contains(t, err.Error(), "monthly bill must be non-negative")
 			},
 		},
-		{
-			name: "validation error - negative opening balance",
-			sms: `A/N: 123456789
-Read On: 01-JAN-25
-Opening Balance: Rs. -100.00`,
-			check: func(t *testing.T, bill *models.ElectricityBill, err error) {
-				assert.Error(t, err)
-				assert.Nil(t, bill) // Parser returns nil when validation fails
-				assert.Contains(t, err.Error(), "opening balance must be non-negative")
-			},
-		},
 	}
 
 	for _, tt := range tests {

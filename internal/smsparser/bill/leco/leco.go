@@ -265,9 +265,6 @@ func validateBill(bill *models.ElectricityBill) error {
 	if bill.MonthlyBill < 0 {
 		return errors.New("monthly bill must be non-negative")
 	}
-	if bill.OpeningBalance < 0 {
-		return errors.New("opening balance must be non-negative")
-	}
 	if bill.TotalPayable < 0 {
 		return errors.New("total payable must be non-negative")
 	}
