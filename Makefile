@@ -22,4 +22,4 @@ clean:
 	rm -rf .aws-sam
 
 deploy: build
-	sam deploy --template-file deployment/template.yaml --stack-name auto-finance --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --s3-bucket $(BUCKET_NAME) --s3-prefix auto-finance --region $(AWS_REGION)
+	sam deploy --template-file deployment/template.yaml --stack-name auto-finance --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --s3-bucket $(BUCKET_NAME) --s3-prefix auto-finance --region $(AWS_REGION) --tags "AppManagerCFNStackKey=auto-finance AppManagerCFNStackName=auto-finance"

@@ -13,9 +13,13 @@ Globals:
     Runtime: provided.al2023
     Architectures:
       - arm64
+    Tags:
+      AppManagerCFNStackKey: !Sub ${AWS::StackName}
+      AppManagerCFNStackName: !Sub ${AWS::StackName}
     Environment:
       Variables:
         LOG_LEVEL: info
+
 Resources:
   ApiGateway:
     Type: AWS::Serverless::Api
@@ -44,8 +48,8 @@ Resources:
         - ApiId: !Ref ApiGateway
           Stage: prod
       Throttle:
-        BurstLimit: 100
-        RateLimit: 100
+        BurstLimit: 10
+        RateLimit: 10
 
   ApiKeyUsagePlanKey:
     Type: AWS::ApiGateway::UsagePlanKey

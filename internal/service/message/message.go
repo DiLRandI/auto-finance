@@ -57,6 +57,7 @@ func (s *service) PassMessage(ctx context.Context, msg Message) error {
 
 		if obj == nil {
 			parseErrors = append(parseErrors, fmt.Errorf("parser %s returned nil for message: %s", parser.GetName(), msg.Body))
+			continue
 		}
 
 		parseErrors = nil // reset errors if we successfully parsed at least one message
@@ -67,6 +68,8 @@ func (s *service) PassMessage(ctx context.Context, msg Message) error {
 				s.logger.Error().Err(err).Msg("Failed to handle LECO bill")
 				return fmt.Errorf("failed to handle LECO bill: %w", err)
 			}
+
+			return nil
 		default:
 			s.logger.Warn().Msgf("Unknown object type: %T", v)
 		}
