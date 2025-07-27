@@ -6,8 +6,13 @@ import (
 	"os"
 
 	autofinance "auto-finance/internal/app/auto-finance"
+	appConfig "auto-finance/internal/config"
 	"auto-finance/internal/logger"
 	parameterstore "auto-finance/internal/parameter-store"
+	"auto-finance/internal/service/ebill"
+	"auto-finance/internal/service/message"
+	"auto-finance/internal/smsparser"
+	ebillStorage "auto-finance/internal/storage/ebill"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -26,6 +31,12 @@ func main() {
 		panic(err)
 	}
 
+	appConfig, err := appConfig.LoadConfig()
+	if err != nil {
+		logger.Err(err).Msg("Failed to load application config")
+		os.Exit(1)
+	}
+
 	logger.Info().Msg("Initializing Auto Finance Lambda function")
 	defer logger.Info().Msg("Auto Finance Lambda function initialization complete")
 
@@ -41,9 +52,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	msgSvc := message.New(&message.Config{
+		Logger:  logger,
+		Parsers: []smsparser.UniversalParser{},
+		LecoBillService: ebill.NewLECOBillService(&ebill.Config{
+			Logger: logger,
+			Storage: ebillStorage.New(&ebillStorage.Config{
+				Service:   srv,
+				SheetID:   appConfig.LecoSheetConfig.SheetID,
+				SheetName: appConfig.LecoSheetConfig.SheetName,
+			}),
+		}),
+	})
+
 	app := autofinance.New(&autofinance.Config{
-		Logger: logger,
-		SS:     srv,
+		Logger:         logger,
+		MessageService: msgSvc,
 	})
 
 	lambda.Start(app.Handler)

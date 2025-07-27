@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	models "auto-finance/internal/models/ebill"
 	"auto-finance/internal/smsparser"
 )
 
-func New() smsparser.SMSParser[*ElectricityBill] {
+func New() smsparser.SMSParser[*models.ElectricityBill] {
 	return &parser{}
 }
 
@@ -31,8 +32,8 @@ var (
 	ErrInvalidAmount  = errors.New("invalid amount format")
 )
 
-func (*parser) Parse(sms string) (*ElectricityBill, error) {
-	bill := &ElectricityBill{}
+func (*parser) Parse(sms string) (*models.ElectricityBill, error) {
+	bill := &models.ElectricityBill{}
 	lines := strings.Split(sms, "\n")
 
 	var (
@@ -113,7 +114,11 @@ func (*parser) Parse(sms string) (*ElectricityBill, error) {
 	return bill, parseErr
 }
 
-func parseAccount(s string, bill *ElectricityBill) error {
+func (p *parser) GetName() string {
+	return "Leco SMS Parser"
+}
+
+func parseAccount(s string, bill *models.ElectricityBill) error {
 	matches := accountRegex.FindStringSubmatch(s)
 	if len(matches) < 2 {
 		return fmt.Errorf("%w: account format", ErrInvalidValue)

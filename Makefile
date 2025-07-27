@@ -11,8 +11,10 @@ create-deployment-bucket:
 
 build:
 	$(GO_BUILD_CMD) -o bin/bootstrap cmd/auto-finance/main.go
-	cp ./config/config.toml bin/config.toml
-	zip -j -9 bin/auto-finance.zip bin/bootstrap bin/config.toml
+	mkdir -p ./bin/config
+	@echo "Copying config file to bin directory..."
+	cp ./config/config.toml ./bin/config/config.toml
+	zip -j -9 ./bin/auto-finance.zip ./bin/bootstrap ./bin/config/config.toml
 	sam build -t deployment/template.yaml
 
 

@@ -3,28 +3,28 @@ package autofinance
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+
+	"auto-finance/internal/service/message"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/rs/zerolog"
-	"google.golang.org/api/sheets/v4"
 )
 
 const testSender = "TEST_SENDER"
 
 type Config struct {
-	Logger zerolog.Logger
-	SS     *sheets.Service
+	Logger         zerolog.Logger
+	MessageService message.Service
 }
 type App struct {
-	logger zerolog.Logger
-	srv    *sheets.Service
+	logger         zerolog.Logger
+	messageService message.Service
 }
 
 func New(config *Config) *App {
 	return &App{
-		logger: config.Logger,
-		srv:    config.SS,
+		logger:         config.Logger,
+		messageService: config.MessageService,
 	}
 }
 
@@ -50,28 +50,19 @@ func (app *App) Handler(ctx context.Context, event events.APIGatewayProxyRequest
 		}, nil
 	}
 
+	if err := app.messageService.PassMessage(ctx, message.Message{
+		Sender: req.Sender,
+		Body:   req.Body,
+	}); err != nil {
+		app.logger.Error().Err(err).Msg("Failed to pass message")
+		return events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       "Internal Server Error",
+		}, nil
+	}
+
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
 		Body:       "Hello from Auto Finance!",
 	}, nil
-}
-
-func (app *App) writeToSheet(spreadsheetID, sheetRange string, data [][]interface{}) error {
-	valueRange := &sheets.ValueRange{
-		Values: data,
-	}
-
-	// Call the Append method to add data to the sheet.
-	// The "USER_ENTERED" value input option means that the data will be parsed
-	// as if it were entered by a user (e.g., numbers will be parsed as numbers, dates as dates).
-	// The "INSERT_ROWS" insert data option means new rows will be inserted at the end of the sheet.
-	_, err := app.srv.Spreadsheets.Values.Append(spreadsheetID, sheetRange, valueRange).
-		ValueInputOption("USER_ENTERED").
-		InsertDataOption("INSERT_ROWS").
-		Do()
-	if err != nil {
-		return fmt.Errorf("unable to append data to sheet: %v", err)
-	}
-
-	return nil
 }

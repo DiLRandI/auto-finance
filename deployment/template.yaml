@@ -73,6 +73,8 @@ Resources:
         Variables:
           SHEET_KEY:
             Ref: SheetKey
+          LOG_LEVEL: info
+          LECO_SHEET_ID: "1dkcvWfL2pg59oSOoCBLo2LTcIxkUdjTN5HB5EwUWIOM"
       Policies:
         - Statement:
             - Sid: AllowSSMParameterAccess
