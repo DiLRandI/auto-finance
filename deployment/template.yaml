@@ -15,7 +15,7 @@ Globals:
       - arm64
     Environment:
       Variables:
-        LOG_LEVEL: debug
+        LOG_LEVEL: info
 Resources:
   ApiGateway:
     Type: AWS::Serverless::Api
