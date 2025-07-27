@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func NewLogger(appName, version, logLevel string) (zerolog.Logger, error) {
+func NewLogger(version, logLevel string) (zerolog.Logger, error) {
 	level, err := zerolog.ParseLevel(strings.ToLower(logLevel))
 	if err != nil {
 		return zerolog.Logger{}, err
@@ -15,7 +15,6 @@ func NewLogger(appName, version, logLevel string) (zerolog.Logger, error) {
 
 	return zerolog.New(os.Stdout).
 		With().
-		Str("app", appName).
 		Str("version", version).
 		Timestamp().
 		Logger().

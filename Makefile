@@ -17,6 +17,9 @@ build:
 	zip -j -9 ./bin/auto-finance.zip ./bin/bootstrap ./bin/config/config.toml
 	sam build -t deployment/template.yaml
 
+clean:
+	rm -rf bin
+	rm -rf .aws-sam
 
 deploy: build
 	sam deploy --template-file deployment/template.yaml --stack-name auto-finance --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --s3-bucket $(BUCKET_NAME) --s3-prefix auto-finance --region $(AWS_REGION)

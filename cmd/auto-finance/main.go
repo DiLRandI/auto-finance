@@ -26,19 +26,19 @@ var version = "local"
 func main() {
 	ctx := context.Background()
 
-	logger, err := logger.NewLogger("AutoFinance", version, os.Getenv("LOG_LEVEL"))
+	logger, err := logger.NewLogger(version, os.Getenv("LOG_LEVEL"))
 	if err != nil {
 		panic(err)
 	}
+
+	logger.Info().Msg("Initializing Auto Finance Lambda function")
+	defer logger.Info().Msg("Auto Finance Lambda function initialization complete")
 
 	appConfig, err := appConfig.LoadConfig()
 	if err != nil {
 		logger.Err(err).Msg("Failed to load application config")
 		os.Exit(1)
 	}
-
-	logger.Info().Msg("Initializing Auto Finance Lambda function")
-	defer logger.Info().Msg("Auto Finance Lambda function initialization complete")
 
 	sheetKey, err := loadParameters(ctx)
 	if err != nil {

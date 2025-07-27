@@ -41,7 +41,8 @@ func (app *App) Handler(ctx context.Context, event events.APIGatewayProxyRequest
 		}, nil
 	}
 
-	app.logger.Debug().Ctx(ctx).Any("request", req).Msg("Request received")
+	app.logger.Info().Ctx(ctx).Any("request", req).Msg("Request received")
+
 	if req.Test || req.Sender == testSender {
 		app.logger.Info().Msg("Test mode is enabled, skipping sheet write")
 		return events.APIGatewayProxyResponse{

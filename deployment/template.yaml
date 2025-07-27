@@ -8,7 +8,7 @@ Description: "Auto Finance Application
   "
 Globals:
   Function:
-    Timeout: 5
+    Timeout: 60
     MemorySize: 128
     Runtime: provided.al2023
     Architectures:
@@ -73,8 +73,7 @@ Resources:
         Variables:
           SHEET_KEY:
             Ref: SheetKey
-          LOG_LEVEL: info
-          LECO_SHEET_ID: "1dkcvWfL2pg59oSOoCBLo2LTcIxkUdjTN5HB5EwUWIOM"
+          LOG_LEVEL: debug
       Policies:
         - Statement:
             - Sid: AllowSSMParameterAccess
