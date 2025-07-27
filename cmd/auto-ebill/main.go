@@ -1,13 +1,12 @@
 package main
 
 import (
+	autoebill "auto-finance/inernal/app/auto-ebill"
+	"auto-finance/inernal/logger"
+	parameterstore "auto-finance/inernal/parameter-store"
 	"context"
 	"fmt"
 	"os"
-
-	autofinance "auto-finance/inernal/app/auto-finance"
-	"auto-finance/inernal/logger"
-	parameterstore "auto-finance/inernal/parameter-store"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -21,13 +20,13 @@ var version = "local"
 func main() {
 	ctx := context.Background()
 
-	logger, err := logger.NewLogger("AutoFinance", version, os.Getenv("LOG_LEVEL"))
+	logger, err := logger.NewLogger("AutoEBill", version, os.Getenv("LOG_LEVEL"))
 	if err != nil {
 		panic(err)
 	}
 
-	logger.Info().Msg("Initializing Auto Finance Lambda function")
-	defer logger.Info().Msg("Auto Finance Lambda function initialization complete")
+	logger.Info().Msg("Initializing Auto EBill Lambda function")
+	defer logger.Info().Msg("Auto EBill Lambda function initialization complete")
 
 	sheetKey, err := loadParameters(ctx)
 	if err != nil {
@@ -41,7 +40,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	app := autofinance.New(&autofinance.Config{
+	app := autoebill.New(&autoebill.Config{
 		Logger: logger,
 		SS:     srv,
 	})

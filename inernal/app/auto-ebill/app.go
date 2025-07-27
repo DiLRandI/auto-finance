@@ -1,4 +1,4 @@
-package autofinance
+package autoebill
 
 import (
 	"context"
