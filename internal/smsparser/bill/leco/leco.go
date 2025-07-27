@@ -7,21 +7,38 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"auto-finance/internal/smsparser"
 )
 
-type LecoParser struct{}
+func New() smsparser.SMSParser[*ElectricityBill] {
+	return &parser{}
+}
+
+type parser struct{}
 
 var (
-	dateLayout      = "02-Jan-06"
-	amountRegex     = regexp.MustCompile(`[-+]?[\d,]+(?:\.\d+)?`)
-	readingRegex    = regexp.MustCompile(`(\d+)\s*-\s*(\d+)\s*=\s*(\d+)`)
-	netUnitsRegex   = regexp.MustCompile(`([-\d]+)\s*\((\w+)\)`)
-	errInvalidValue = errors.New("invalid value")
+	dateLayout    = "02-Jan-06"
+	amountRegex   = regexp.MustCompile(`[-+]?[\d,]+(?:\.\d+)?`)
+	readingRegex  = regexp.MustCompile(`(\d+)\s*-\s*(\d+)\s*=\s*(\d+)`)
+	netUnitsRegex = regexp.MustCompile(`([-\d]+)\s*\((\w+)\)`)
+	accountRegex  = regexp.MustCompile(`(\d+)\s*(?:\(([^)]+)\))?`)
+
+	// Custom errors
+	ErrInvalidValue   = errors.New("invalid value")
+	ErrInvalidDate    = errors.New("invalid date format")
+	ErrInvalidReading = errors.New("invalid reading format")
+	ErrInvalidAmount  = errors.New("invalid amount format")
 )
 
-func (*LecoParser) Parse(sms string) (*ElectricityBill, error) {
+func (*parser) Parse(sms string) (*ElectricityBill, error) {
 	bill := &ElectricityBill{}
 	lines := strings.Split(sms, "\n")
+
+	var (
+		parseErr        error
+		pendingAcctName bool
+	)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -29,11 +46,22 @@ func (*LecoParser) Parse(sms string) (*ElectricityBill, error) {
 			continue
 		}
 
-		// Normalize line by removing prefix markers
-		if strings.HasPrefix(line, ">") {
-			line = strings.TrimSpace(line[1:])
+		// Handle both prefixed and non-prefixed lines
+		line = strings.TrimPrefix(line, ">")
+		line = strings.TrimSpace(line)
+
+		// Handle pending account name from previous A/N line
+		if pendingAcctName {
+			if !strings.Contains(line, ":") && line != "" {
+				bill.AccountName = line
+				pendingAcctName = false
+				continue
+			} else {
+				pendingAcctName = false
+			}
 		}
 
+		// Skip non-key:value lines except account name
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) < 2 {
 			continue
@@ -44,12 +72,15 @@ func (*LecoParser) Parse(sms string) (*ElectricityBill, error) {
 
 		var err error
 		switch key {
+		case "A/N":
+			err = parseAccount(value, bill)
+			pendingAcctName = (err == nil)
 		case "Read On":
 			bill.ReadOn, err = parseDate(value)
 		case "Imp":
-			err = parseReading(value, &bill.ImportReadingPrevious, &bill.ImportReadingCurrent, &bill.ImportUnits)
+			err = parseReading(value, &bill.ImportPrevious, &bill.ImportCurrent, &bill.ImportUnits)
 		case "Exp":
-			err = parseReading(value, &bill.ExportReadingPrevious, &bill.ExportReadingCurrent, &bill.ExportUnits)
+			err = parseReading(value, &bill.ExportPrevious, &bill.ExportCurrent, &bill.ExportUnits)
 		case "Net Units":
 			err = parseNetUnits(value, &bill.NetUnits, &bill.NetUnitsType)
 		case "Monthly Bill":
@@ -68,52 +99,88 @@ func (*LecoParser) Parse(sms string) (*ElectricityBill, error) {
 			bill.LastGenPayment, err = parseAmount(value)
 		}
 
-		if err != nil {
-			return nil, fmt.Errorf("error parsing '%s': %w", key, err)
+		if err != nil && parseErr == nil {
+			parseErr = fmt.Errorf("%s: %w", key, err)
 		}
 	}
-	return bill, nil
+
+	if pendingAcctName {
+		if parseErr == nil {
+			parseErr = errors.New("account name missing after A/N")
+		}
+	}
+
+	return bill, parseErr
+}
+
+func parseAccount(s string, bill *ElectricityBill) error {
+	matches := accountRegex.FindStringSubmatch(s)
+	if len(matches) < 2 {
+		return fmt.Errorf("%w: account format", ErrInvalidValue)
+	}
+
+	bill.AccountNumber = matches[1]
+	if len(matches) > 2 {
+		bill.AccountType = matches[2]
+	}
+	return nil
 }
 
 func parseDate(s string) (time.Time, error) {
-	// Normalize month abbreviation to title case
-	if parts := strings.Split(s, "-"); len(parts) == 3 {
-		s = fmt.Sprintf("%s-%s-%s", parts[0], strings.Title(strings.ToLower(parts[1])), parts[2])
+	parts := strings.Split(s, "-")
+	if len(parts) != 3 {
+		return time.Time{}, fmt.Errorf("%w: expected DD-MMM-YY format", ErrInvalidDate)
 	}
-	return time.Parse(dateLayout, s)
+
+	// Normalize month: "JUL" -> "Jul"
+	month := strings.ToUpper(parts[1])
+	if len(month) >= 3 {
+		month = strings.ToUpper(month[0:1]) + strings.ToLower(month[1:3])
+	}
+	dateStr := fmt.Sprintf("%s-%s-%s", parts[0], month, parts[2])
+
+	t, err := time.Parse(dateLayout, dateStr)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%w: %v", ErrInvalidDate, err)
+	}
+	return t, nil
 }
 
 func parseReading(s string, prev, curr, units *int) error {
 	matches := readingRegex.FindStringSubmatch(s)
-	if len(matches) < 4 {
-		return fmt.Errorf("%w: reading format", errInvalidValue)
+	if len(matches) != 4 {
+		return fmt.Errorf("%w: expected format '123-456=789'", ErrInvalidReading)
 	}
 
 	var err error
 	*prev, err = strconv.Atoi(matches[1])
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: previous reading", ErrInvalidReading)
 	}
 
 	*curr, err = strconv.Atoi(matches[2])
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: current reading", ErrInvalidReading)
 	}
 
 	*units, err = strconv.Atoi(matches[3])
-	return err
+	if err != nil {
+		return fmt.Errorf("%w: units calculation", ErrInvalidReading)
+	}
+
+	return nil
 }
 
 func parseNetUnits(s string, units *int, unitType *string) error {
 	matches := netUnitsRegex.FindStringSubmatch(s)
-	if len(matches) < 3 {
-		return fmt.Errorf("%w: net units format", errInvalidValue)
+	if len(matches) != 3 {
+		return fmt.Errorf("%w: net units format", ErrInvalidValue)
 	}
 
 	var err error
 	*units, err = strconv.Atoi(matches[1])
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: net units value", ErrInvalidValue)
 	}
 
 	*unitType = matches[2]
@@ -121,18 +188,24 @@ func parseNetUnits(s string, units *int, unitType *string) error {
 }
 
 func parseAmount(s string) (float64, error) {
-	// Extract first numeric value found
-	if match := amountRegex.FindString(s); match != "" {
-		clean := strings.ReplaceAll(match, ",", "")
-		return strconv.ParseFloat(clean, 64)
+	match := amountRegex.FindString(s)
+	if match == "" {
+		return 0, fmt.Errorf("%w: no numeric value found", ErrInvalidAmount)
 	}
-	return 0, fmt.Errorf("%w: amount format", errInvalidValue)
+
+	clean := strings.ReplaceAll(match, ",", "")
+	val, err := strconv.ParseFloat(clean, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %v", ErrInvalidAmount, err)
+	}
+
+	return val, nil
 }
 
 func parseBalanceWithDate(s string) (float64, time.Time, error) {
 	parts := strings.Split(s, " on ")
 	if len(parts) < 1 {
-		return 0, time.Time{}, fmt.Errorf("%w: balance format", errInvalidValue)
+		return 0, time.Time{}, fmt.Errorf("%w: balance format", ErrInvalidValue)
 	}
 
 	amount, err := parseAmount(parts[0])
@@ -143,18 +216,15 @@ func parseBalanceWithDate(s string) (float64, time.Time, error) {
 	var date time.Time
 	if len(parts) > 1 {
 		date, err = parseDate(parts[1])
-		if err != nil {
-			return amount, time.Time{}, err
-		}
 	}
 
-	return amount, date, nil
+	return amount, date, err
 }
 
 func parsePayment(s string) (float64, time.Time, error) {
 	parts := strings.Split(s, " on ")
 	if len(parts) < 1 {
-		return 0, time.Time{}, fmt.Errorf("%w: payment format", errInvalidValue)
+		return 0, time.Time{}, fmt.Errorf("%w: payment format", ErrInvalidValue)
 	}
 
 	amount, err := parseAmount(parts[0])
