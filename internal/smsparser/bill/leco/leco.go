@@ -1,7 +1,9 @@
 package leco
 
 import (
+	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -9,14 +11,17 @@ import (
 
 type LecoParser struct{}
 
-func (p *LecoParser) Parse(sms string) (*ElectricityBill, error) {
+var (
+	dateLayout      = "02-Jan-06"
+	amountRegex     = regexp.MustCompile(`[-+]?[\d,]+(?:\.\d+)?`)
+	readingRegex    = regexp.MustCompile(`(\d+)\s*-\s*(\d+)\s*=\s*(\d+)`)
+	netUnitsRegex   = regexp.MustCompile(`([-\d]+)\s*\((\w+)\)`)
+	errInvalidValue = errors.New("invalid value")
+)
+
+func (*LecoParser) Parse(sms string) (*ElectricityBill, error) {
 	bill := &ElectricityBill{}
 	lines := strings.Split(sms, "\n")
-	monthAbbr := map[string]string{
-		"JAN": "Jan", "FEB": "Feb", "MAR": "Mar", "APR": "Apr",
-		"MAY": "May", "JUN": "Jun", "JUL": "Jul", "AUG": "Aug",
-		"SEP": "Sep", "OCT": "Oct", "NOV": "Nov", "DEC": "Dec",
-	}
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -24,102 +29,143 @@ func (p *LecoParser) Parse(sms string) (*ElectricityBill, error) {
 			continue
 		}
 
-		// Remove leading '>' if present
+		// Normalize line by removing prefix markers
 		if strings.HasPrefix(line, ">") {
 			line = strings.TrimSpace(line[1:])
 		}
 
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) < 2 {
-			continue // Skip malformed lines
+			continue
 		}
 
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
 
+		var err error
 		switch key {
 		case "Read On":
-			if t, err := parseDate(value, monthAbbr); err == nil {
-				bill.ReadOn = t
-			}
+			bill.ReadOn, err = parseDate(value)
 		case "Imp":
-			parseReading(value, &bill.ImportReadingPrevious, &bill.ImportReadingCurrent, &bill.ImportUnits)
+			err = parseReading(value, &bill.ImportReadingPrevious, &bill.ImportReadingCurrent, &bill.ImportUnits)
 		case "Exp":
-			parseReading(value, &bill.ExportReadingPrevious, &bill.ExportReadingCurrent, &bill.ExportUnits)
+			err = parseReading(value, &bill.ExportReadingPrevious, &bill.ExportReadingCurrent, &bill.ExportUnits)
 		case "Net Units":
-			parseNetUnits(value, &bill.NetUnits, &bill.NetUnitsType)
+			err = parseNetUnits(value, &bill.NetUnits, &bill.NetUnitsType)
 		case "Monthly Bill":
-			bill.MonthlyBill = parseAmount(value)
+			bill.MonthlyBill, err = parseAmount(value)
 		case "Other Charges":
-			bill.OtherCharges = parseAmount(value)
+			bill.OtherCharges, err = parseAmount(value)
 		case "SSCL":
-			bill.SSCL = parseAmount(value)
+			bill.SSCL, err = parseAmount(value)
 		case "Opening Balance":
-			parseBalanceWithDate(value, &bill.OpeningBalance, &bill.OpeningBalanceDate, monthAbbr)
+			bill.OpeningBalance, bill.OpeningBalanceDate, err = parseBalanceWithDate(value)
 		case "Total Payable":
-			bill.TotalPayable = parseAmount(value)
+			bill.TotalPayable, err = parseAmount(value)
 		case "Last Payment":
-			parsePayment(value, &bill.LastPaymentAmount, &bill.LastPaymentDate, monthAbbr)
+			bill.LastPaymentAmount, bill.LastPaymentDate, err = parsePayment(value)
 		case "Last Amount Paid for Generation":
-			bill.LastGenPayment = parseAmount(value)
+			bill.LastGenPayment, err = parseAmount(value)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("error parsing '%s': %w", key, err)
 		}
 	}
 	return bill, nil
 }
 
-// Helper functions
-func parseDate(s string, monthMap map[string]string) (time.Time, error) {
-	parts := strings.Split(s, "-")
-	if len(parts) == 3 {
-		if mon, ok := monthMap[parts[1]]; ok {
-			s = fmt.Sprintf("%s-%s-%s", parts[0], mon, parts[2])
+func parseDate(s string) (time.Time, error) {
+	// Normalize month abbreviation to title case
+	if parts := strings.Split(s, "-"); len(parts) == 3 {
+		s = fmt.Sprintf("%s-%s-%s", parts[0], strings.Title(strings.ToLower(parts[1])), parts[2])
+	}
+	return time.Parse(dateLayout, s)
+}
+
+func parseReading(s string, prev, curr, units *int) error {
+	matches := readingRegex.FindStringSubmatch(s)
+	if len(matches) < 4 {
+		return fmt.Errorf("%w: reading format", errInvalidValue)
+	}
+
+	var err error
+	*prev, err = strconv.Atoi(matches[1])
+	if err != nil {
+		return err
+	}
+
+	*curr, err = strconv.Atoi(matches[2])
+	if err != nil {
+		return err
+	}
+
+	*units, err = strconv.Atoi(matches[3])
+	return err
+}
+
+func parseNetUnits(s string, units *int, unitType *string) error {
+	matches := netUnitsRegex.FindStringSubmatch(s)
+	if len(matches) < 3 {
+		return fmt.Errorf("%w: net units format", errInvalidValue)
+	}
+
+	var err error
+	*units, err = strconv.Atoi(matches[1])
+	if err != nil {
+		return err
+	}
+
+	*unitType = matches[2]
+	return nil
+}
+
+func parseAmount(s string) (float64, error) {
+	// Extract first numeric value found
+	if match := amountRegex.FindString(s); match != "" {
+		clean := strings.ReplaceAll(match, ",", "")
+		return strconv.ParseFloat(clean, 64)
+	}
+	return 0, fmt.Errorf("%w: amount format", errInvalidValue)
+}
+
+func parseBalanceWithDate(s string) (float64, time.Time, error) {
+	parts := strings.Split(s, " on ")
+	if len(parts) < 1 {
+		return 0, time.Time{}, fmt.Errorf("%w: balance format", errInvalidValue)
+	}
+
+	amount, err := parseAmount(parts[0])
+	if err != nil {
+		return 0, time.Time{}, err
+	}
+
+	var date time.Time
+	if len(parts) > 1 {
+		date, err = parseDate(parts[1])
+		if err != nil {
+			return amount, time.Time{}, err
 		}
 	}
-	return time.Parse("02-Jan-06", s)
+
+	return amount, date, nil
 }
 
-func parseReading(s string, prev, curr, units *int) {
-	parts := strings.FieldsFunc(s, func(r rune) bool { return r == '-' || r == '=' })
-	if len(parts) >= 3 {
-		*prev, _ = strconv.Atoi(parts[0])
-		*curr, _ = strconv.Atoi(parts[1])
-		*units, _ = strconv.Atoi(parts[2])
-	}
-}
-
-func parseNetUnits(s string, units *int, unitType *string) {
-	if idx := strings.Index(s, "("); idx != -1 {
-		*units, _ = strconv.Atoi(strings.TrimSpace(s[:idx]))
-		*unitType = strings.Trim(s[idx+1:], ")")
-	}
-}
-
-func parseAmount(s string) float64 {
-	s = strings.ReplaceAll(s, ",", "")
-	s = strings.TrimPrefix(s, "Rs. ")
-	s = strings.TrimSpace(s)
-	val, _ := strconv.ParseFloat(s, 64)
-	return val
-}
-
-func parseBalanceWithDate(s string, balance *float64, date *time.Time, monthMap map[string]string) {
+func parsePayment(s string) (float64, time.Time, error) {
 	parts := strings.Split(s, " on ")
-	if len(parts) >= 1 {
-		*balance = parseAmount(parts[0])
+	if len(parts) < 1 {
+		return 0, time.Time{}, fmt.Errorf("%w: payment format", errInvalidValue)
 	}
-	if len(parts) >= 2 {
-		t, _ := parseDate(parts[1], monthMap)
-		*date = t
-	}
-}
 
-func parsePayment(s string, amount *float64, date *time.Time, monthMap map[string]string) {
-	parts := strings.Split(s, " on ")
-	if len(parts) >= 1 {
-		*amount = parseAmount(parts[0])
+	amount, err := parseAmount(parts[0])
+	if err != nil {
+		return 0, time.Time{}, err
 	}
-	if len(parts) >= 2 {
-		t, _ := parseDate(parts[1], monthMap)
-		*date = t
+
+	var date time.Time
+	if len(parts) > 1 {
+		date, err = parseDate(parts[1])
 	}
+
+	return amount, date, err
 }
