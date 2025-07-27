@@ -1,7 +1,6 @@
 package message
 
-type service struct {
-}
+type service struct{}
 
 type Config struct{}
 

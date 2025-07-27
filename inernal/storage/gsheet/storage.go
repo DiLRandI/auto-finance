@@ -1,10 +1,11 @@
 package gsheet
 
 import (
-	"auto-finance/inernal/models"
 	"context"
 	"fmt"
 	"time"
+
+	"auto-finance/inernal/models"
 
 	"github.com/google/uuid"
 	"google.golang.org/api/sheets/v4"
@@ -77,7 +78,7 @@ func (s *gsheetStorage) Read(ctx context.Context, id uuid.UUID) (*models.Message
 	}, nil
 }
 
-func (s *gsheetStorage) ReadAll(ctx context.Context, pageSize int, pageNumber int) ([]*models.Message, error) {
+func (s *gsheetStorage) ReadAll(ctx context.Context, pageSize, pageNumber int) ([]*models.Message, error) {
 	readRange := fmt.Sprintf("%s!A%d:D%d", s.sheetName, pageNumber*pageSize+1, (pageNumber+1)*pageSize)
 	resp, err := s.service.Spreadsheets.Values.Get(s.sheetID, readRange).Do()
 	if err != nil {
