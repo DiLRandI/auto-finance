@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"auto-finance/inernal/models"
+	"auto-finance/internal/models"
 
 	"github.com/google/uuid"
 	"google.golang.org/api/sheets/v4"

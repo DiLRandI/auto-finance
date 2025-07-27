@@ -1,12 +1,13 @@
 package main
 
 import (
-	autoebill "auto-finance/inernal/app/auto-ebill"
-	"auto-finance/inernal/logger"
-	parameterstore "auto-finance/inernal/parameter-store"
 	"context"
 	"fmt"
 	"os"
+
+	autoebill "auto-finance/internal/app/auto-ebill"
+	"auto-finance/internal/logger"
+	parameterstore "auto-finance/internal/parameter-store"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
