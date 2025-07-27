@@ -11,9 +11,10 @@ create-deployment-bucket:
 
 build:
 	$(GO_BUILD_CMD) -o bin/bootstrap cmd/auto-finance/main.go
-	zip -j -9 bin/auto-finance.zip bin/bootstrap
+	cp ./config/config.toml bin/config.toml
+	zip -j -9 bin/auto-finance.zip bin/bootstrap bin/config.toml
 	sam build -t deployment/template.yaml
 
 
 deploy: build
-	sam deploy --template-file deployment/template.yaml --stack-name auto-finance --capabilities CAPABILITY_IAM --s3-bucket $(BUCKET_NAME) --s3-prefix auto-finance --region $(AWS_REGION)
+	sam deploy --template-file deployment/template.yaml --stack-name auto-finance --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --s3-bucket $(BUCKET_NAME) --s3-prefix auto-finance --region $(AWS_REGION)

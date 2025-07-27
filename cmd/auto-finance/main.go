@@ -1,42 +1,64 @@
 package main
 
 import (
-	"log/slog"
+	"context"
+	"fmt"
 	"os"
 
-	autofinance "auto-finance/inernal/app/auto-finance"
+	autofinance "auto-finance/internal/app/auto-finance"
+	"auto-finance/internal/logger"
+	parameterstore "auto-finance/internal/parameter-store"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"google.golang.org/api/option"
+	"google.golang.org/api/sheets/v4"
 )
 
 var version = "local"
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: parseLevel(os.Getenv("LOG_LEVEL")),
-	})).With("version", version)
+	ctx := context.Background()
 
-	logger.Info("Starting Auto Finance Lambda function")
-	defer logger.Info("Auto Finance Lambda function finished")
+	logger, err := logger.NewLogger("AutoFinance", version, os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Info().Msg("Initializing Auto Finance Lambda function")
+	defer logger.Info().Msg("Auto Finance Lambda function initialization complete")
+
+	sheetKey, err := loadParameters(ctx)
+	if err != nil {
+		logger.Err(err).Msg("Failed to load parameters from Parameter Store")
+		os.Exit(1)
+	}
+
+	srv, err := sheets.NewService(ctx, option.WithScopes(sheets.SpreadsheetsScope), option.WithCredentialsJSON([]byte(sheetKey)))
+	if err != nil {
+		logger.Err(err).Msg("Failed to create Sheets service")
+		os.Exit(1)
+	}
 
 	app := autofinance.New(&autofinance.Config{
 		Logger: logger,
+		SS:     srv,
 	})
 
 	lambda.Start(app.Handler)
 }
 
-func parseLevel(level string) slog.Level {
-	switch level {
-	case "debug":
-		return slog.LevelDebug
-	case "info":
-		return slog.LevelInfo
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
+func loadParameters(ctx context.Context) (string, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to load AWS config: %w", err)
 	}
+
+	client := ssm.NewFromConfig(cfg)
+	store := parameterstore.New(client)
+
+	sk := os.Getenv("SHEET_KEY")
+
+	return store.GetParameter(ctx, sk)
 }
