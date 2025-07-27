@@ -73,7 +73,6 @@ Resources:
         Variables:
           SHEET_KEY:
             Ref: SheetKey
-          LOG_LEVEL: debug
       Policies:
         - Statement:
             - Sid: AllowSSMParameterAccess
