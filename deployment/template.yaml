@@ -8,14 +8,14 @@ Description: "Auto Finance Application
   "
 Globals:
   Function:
-    Timeout: 5
+    Timeout: 60
     MemorySize: 128
     Runtime: provided.al2023
     Architectures:
       - arm64
     Environment:
       Variables:
-        LOG_LEVEL: debug
+        LOG_LEVEL: info
 Resources:
   ApiGateway:
     Type: AWS::Serverless::Api
@@ -25,7 +25,7 @@ Resources:
         AllowMethods: "'GET,POST,PUT,DELETE'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
-  
+
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
@@ -35,6 +35,24 @@ Resources:
       StageKeys:
         - RestApiId: !Ref ApiGateway
           StageName: prod
+
+  ApiKeyUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      Description: Usage plan for Auto Finance application
+      ApiStages:
+        - ApiId: !Ref ApiGateway
+          Stage: prod
+      Throttle:
+        BurstLimit: 100
+        RateLimit: 100
+
+  ApiKeyUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ApiKeyUsagePlan
 
   LogAutoFinanceFunctionLogGroup:
     DeletionPolicy: Delete
@@ -72,6 +90,8 @@ Resources:
               Ref: ApiGateway
             Path: /finance
             Method: post
+            Auth:
+              ApiKeyRequired: true
 
   SheetKey:
     Type: AWS::SSM::Parameter

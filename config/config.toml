@@ -1,3 +1,4 @@
-[parser_selection]
-parser = leco
-from = ["leco", "LECO"]
+[leco_sheet_config]
+
+sheet_id = "1dkcvWfL2pg59oSOoCBLo2LTcIxkUdjTN5HB5EwUWIOM"
+sheet_name = "raw"

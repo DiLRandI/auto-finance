@@ -1,23 +1,21 @@
 package leco_test
 
 import (
-	"auto-finance/internal/smsparser/bill/leco"
 	"testing"
 	"time"
 
+	"auto-finance/internal/smsparser/bill/leco"
+
+	models "auto-finance/internal/models/ebill"
+
 	"github.com/stretchr/testify/assert"
 )
-
-func TestNew(t *testing.T) {
-	parser := leco.New()
-	assert.NotNil(t, parser, "New() should return a non-nil parser")
-}
 
 func TestParser_Parse(t *testing.T) {
 	tests := []struct {
 		name    string
 		sms     string
-		want    *leco.ElectricityBill
+		want    *models.ElectricityBill
 		wantErr bool
 	}{
 		{
@@ -35,11 +33,11 @@ Opening Balance: Rs. 100.00 on 01-JUL-25
 Total Payable: Rs. 1,425.80
 Last Payment: Rs. 1,000.00 on 15-JUL-25
 Last Amount Paid for Generation: Rs. 50.00`,
-			want: func() *leco.ElectricityBill {
+			want: func() *models.ElectricityBill {
 				readOn, _ := time.Parse("02-Jan-06", "27-Jul-25")
 				openingBalanceDate, _ := time.Parse("02-Jan-06", "01-Jul-25")
 				lastPaymentDate, _ := time.Parse("02-Jan-06", "15-Jul-25")
-				return &leco.ElectricityBill{
+				return &models.ElectricityBill{
 					AccountNumber:      "123456789",
 					AccountType:        "Domestic",
 					AccountName:        "Account Name Example",
@@ -70,9 +68,9 @@ Last Amount Paid for Generation: Rs. 50.00`,
 			sms: `A/N: 987654321
 Read On: 15-DEC-24
 Imp: 5000-5100=100`,
-			want: func() *leco.ElectricityBill {
+			want: func() *models.ElectricityBill {
 				readOn, _ := time.Parse("02-Jan-06", "15-Dec-24")
-				return &leco.ElectricityBill{
+				return &models.ElectricityBill{
 					AccountNumber:  "987654321",
 					ReadOn:         readOn,
 					ImportPrevious: 5000,
@@ -85,43 +83,43 @@ Imp: 5000-5100=100`,
 		{
 			name:    "invalid date format - wrong separator",
 			sms:     "Read On: 2025/07/27",
-			want:    &leco.ElectricityBill{},
+			want:    &models.ElectricityBill{},
 			wantErr: true,
 		},
 		{
 			name:    "invalid date format - incomplete",
 			sms:     "Read On: 27-JUL",
-			want:    &leco.ElectricityBill{},
+			want:    &models.ElectricityBill{},
 			wantErr: true,
 		},
 		{
 			name:    "invalid reading format - missing parts",
 			sms:     "Imp: 12345-12367",
-			want:    &leco.ElectricityBill{},
+			want:    &models.ElectricityBill{},
 			wantErr: true,
 		},
 		{
 			name:    "invalid reading format - non-numeric",
 			sms:     "Imp: abc-def=ghi",
-			want:    &leco.ElectricityBill{},
+			want:    &models.ElectricityBill{},
 			wantErr: true,
 		},
 		{
 			name:    "invalid amount format - no numeric value",
 			sms:     "Monthly Bill: Rs. abc",
-			want:    &leco.ElectricityBill{},
+			want:    &models.ElectricityBill{},
 			wantErr: true,
 		},
 		{
 			name:    "invalid net units format",
 			sms:     "Net Units: abc (Imp)",
-			want:    &leco.ElectricityBill{},
+			want:    &models.ElectricityBill{},
 			wantErr: true,
 		},
 		{
 			name:    "invalid account format - no number",
 			sms:     "A/N: (Domestic)",
-			want:    &leco.ElectricityBill{},
+			want:    &models.ElectricityBill{},
 			wantErr: true,
 		},
 		{
@@ -129,9 +127,9 @@ Imp: 5000-5100=100`,
 			sms: `>A/N: 111222333
 >Read On: 01-JAN-25
 >Imp: 1000-1050=50`,
-			want: func() *leco.ElectricityBill {
+			want: func() *models.ElectricityBill {
 				readOn, _ := time.Parse("02-Jan-06", "01-Jan-25")
-				return &leco.ElectricityBill{
+				return &models.ElectricityBill{
 					AccountNumber:  "111222333",
 					ReadOn:         readOn,
 					ImportPrevious: 1000,
@@ -143,30 +141,38 @@ Imp: 5000-5100=100`,
 		},
 		{
 			name: "negative net units (export)",
-			sms: `Net Units: -25 (Exp)
+			sms: `A/N: 123456789
+Read On: 01-JAN-25
+Net Units: -25 (Exp)
 Monthly Bill: Rs. 500.00`,
-			want: &leco.ElectricityBill{
-				NetUnits:     -25,
-				NetUnitsType: "Exp",
-				MonthlyBill:  500.00,
+			want: &models.ElectricityBill{
+				AccountNumber: "123456789",
+				ReadOn:        func() time.Time { t, _ := time.Parse("02-Jan-06", "01-Jan-25"); return t }(),
+				NetUnits:      -25,
+				NetUnitsType:  "Exp",
+				MonthlyBill:   500.00,
 			},
 			wantErr: false,
 		},
 		{
 			name: "amount with commas",
-			sms: `Monthly Bill: Rs. 12,345.67
+			sms: `A/N: 123456789
+Read On: 01-JAN-25
+Monthly Bill: Rs. 12,345.67
 Total Payable: Rs. 15,000.00`,
-			want: &leco.ElectricityBill{
-				MonthlyBill:  12345.67,
-				TotalPayable: 15000.00,
+			want: &models.ElectricityBill{
+				AccountNumber: "123456789",
+				ReadOn:        func() time.Time { t, _ := time.Parse("02-Jan-06", "01-Jan-25"); return t }(),
+				MonthlyBill:   12345.67,
+				TotalPayable:  15000.00,
 			},
 			wantErr: false,
 		},
 		{
 			name:    "empty SMS",
 			sms:     "",
-			want:    &leco.ElectricityBill{},
-			wantErr: false, // Empty SMS should not error, just return empty bill
+			want:    &models.ElectricityBill{},
+			wantErr: true, // Empty SMS should now error due to validation (missing account number and read date)
 		},
 		{
 			name: "SMS with empty lines and whitespace",
@@ -177,21 +183,21 @@ Read On: 01-JAN-25
 Imp: 1000-1050=50
 
 `,
-			want: func() *leco.ElectricityBill {
+			want: func() *models.ElectricityBill {
 				readOn, _ := time.Parse("02-Jan-06", "01-Jan-25")
-				return &leco.ElectricityBill{
+				return &models.ElectricityBill{
 					ReadOn:         readOn,
 					ImportPrevious: 1000,
 					ImportCurrent:  1050,
 					ImportUnits:    50,
 				}
 			}(),
-			wantErr: false,
+			wantErr: true, // Should error due to validation (missing account number)
 		},
 		{
 			name: "incomplete account name handling",
 			sms:  "A/N: 123456789 (Domestic)",
-			want: &leco.ElectricityBill{
+			want: &models.ElectricityBill{
 				AccountNumber: "123456789",
 				AccountType:   "Domestic",
 			},
@@ -199,16 +205,24 @@ Imp: 1000-1050=50
 		},
 		{
 			name: "balance without date",
-			sms:  "Opening Balance: Rs. 500.00",
-			want: &leco.ElectricityBill{
+			sms: `A/N: 123456789
+Read On: 01-JAN-25
+Opening Balance: Rs. 500.00`,
+			want: &models.ElectricityBill{
+				AccountNumber:  "123456789",
+				ReadOn:         func() time.Time { t, _ := time.Parse("02-Jan-06", "01-Jan-25"); return t }(),
 				OpeningBalance: 500.00,
 			},
 			wantErr: false,
 		},
 		{
 			name: "payment without date",
-			sms:  "Last Payment: Rs. 1000.00",
-			want: &leco.ElectricityBill{
+			sms: `A/N: 123456789
+Read On: 01-JAN-25
+Last Payment: Rs. 1000.00`,
+			want: &models.ElectricityBill{
+				AccountNumber:     "123456789",
+				ReadOn:            func() time.Time { t, _ := time.Parse("02-Jan-06", "01-Jan-25"); return t }(),
 				LastPaymentAmount: 1000.00,
 			},
 			wantErr: false,
@@ -234,14 +248,15 @@ Imp: 1000-1050=50
 func TestParser_Parse_ErrorHandling(t *testing.T) {
 	parser := leco.New()
 
-	// Test that first error is returned, not subsequent ones
+	// Test that validation error is returned when parsing has issues
 	sms := `Read On: invalid-date
 Imp: invalid-reading
 Monthly Bill: invalid-amount`
 
 	_, err := parser.Parse(sms)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Read On", "Should contain the field name that caused the first error")
+	// With new validation logic, validation errors take precedence over parsing errors
+	assert.Contains(t, err.Error(), "failed to validate bill", "Should contain validation error message")
 }
 
 // Test edge cases for field parsing
@@ -251,13 +266,16 @@ func TestParser_Parse_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name  string
 		sms   string
-		check func(t *testing.T, bill *leco.ElectricityBill, err error)
+		check func(t *testing.T, bill *models.ElectricityBill, err error)
 	}{
 		{
 			name: "export units higher than import",
-			sms:  "Exp: 1000-2000=1000",
-			check: func(t *testing.T, bill *leco.ElectricityBill, err error) {
+			sms: `A/N: 123456789
+Read On: 01-JAN-25
+Exp: 1000-2000=1000`,
+			check: func(t *testing.T, bill *models.ElectricityBill, err error) {
 				assert.NoError(t, err)
+				assert.Equal(t, "123456789", bill.AccountNumber)
 				assert.Equal(t, 1000, bill.ExportPrevious)
 				assert.Equal(t, 2000, bill.ExportCurrent)
 				assert.Equal(t, 1000, bill.ExportUnits)
@@ -265,19 +283,32 @@ func TestParser_Parse_EdgeCases(t *testing.T) {
 		},
 		{
 			name: "zero amounts",
-			sms:  "Monthly Bill: Rs. 0.00",
-			check: func(t *testing.T, bill *leco.ElectricityBill, err error) {
+			sms: `A/N: 123456789
+Read On: 01-JAN-25
+Monthly Bill: Rs. 0.00`,
+			check: func(t *testing.T, bill *models.ElectricityBill, err error) {
 				assert.NoError(t, err)
+				assert.Equal(t, "123456789", bill.AccountNumber)
 				assert.Equal(t, 0.0, bill.MonthlyBill)
 			},
 		},
 		{
 			name: "account number without type",
 			sms:  "A/N: 123456789",
-			check: func(t *testing.T, bill *leco.ElectricityBill, err error) {
-				assert.Error(t, err) // pendingAcctName should cause error
-				assert.Equal(t, "123456789", bill.AccountNumber)
-				assert.Empty(t, bill.AccountType)
+			check: func(t *testing.T, bill *models.ElectricityBill, err error) {
+				assert.Error(t, err) // Should error due to validation (missing read date) and pendingAcctName
+				assert.Nil(t, bill)  // Parser returns nil when validation fails
+			},
+		},
+		{
+			name: "validation error - negative monthly bill",
+			sms: `A/N: 123456789
+Read On: 01-JAN-25
+Monthly Bill: Rs. -500.00`,
+			check: func(t *testing.T, bill *models.ElectricityBill, err error) {
+				assert.Error(t, err)
+				assert.Nil(t, bill) // Parser returns nil when validation fails
+				assert.Contains(t, err.Error(), "monthly bill must be non-negative")
 			},
 		},
 	}

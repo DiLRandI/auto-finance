@@ -2,15 +2,11 @@ package storage
 
 import (
 	"context"
-
-	"auto-finance/internal/models"
-
-	"github.com/google/uuid"
 )
 
-type MessageStorage interface {
-	Save(ctx context.Context, message *models.Message) error
-	Read(ctx context.Context, id uuid.UUID) (*models.Message, error)
-	ReadAll(ctx context.Context, pageSize, pageNumber int) ([]*models.Message, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+type MessageStorage[T any] interface {
+	Save(ctx context.Context, message T) error
+	// Read(ctx context.Context, id uuid.UUID) (T, error)
+	// ReadAll(ctx context.Context, pageSize, pageNumber int) ([]T, error)
+	// Delete(ctx context.Context, id uuid.UUID) error
 }

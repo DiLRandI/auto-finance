@@ -1,8 +1,6 @@
-package leco
+package ebill
 
-import (
-	"time"
-)
+import "time"
 
 type ElectricityBill struct {
 	AccountNumber      string    `json:"accountNumber"`
