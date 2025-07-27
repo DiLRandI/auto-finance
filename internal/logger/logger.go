@@ -13,10 +13,11 @@ func NewLogger(version, logLevel string) (zerolog.Logger, error) {
 		return zerolog.Logger{}, err
 	}
 
+	zerolog.SetGlobalLevel(level)
+
 	return zerolog.New(os.Stdout).
 		With().
 		Str("version", version).
 		Timestamp().
-		Logger().
-		Level(level), nil
+		Logger(), nil
 }

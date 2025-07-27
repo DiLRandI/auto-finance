@@ -43,6 +43,11 @@ func (s *service) PassMessage(ctx context.Context, msg Message) error {
 	s.logger.Info().Ctx(ctx).Str("sender", msg.Sender).Msg("Processing message")
 
 	parseErrors := make([]error, 0)
+
+	if len(s.parsers) == 0 {
+		return fmt.Errorf("no parsers configured")
+	}
+
 	for _, parser := range s.parsers {
 		obj, err := parser.Parse(msg.Body)
 		if err != nil {
