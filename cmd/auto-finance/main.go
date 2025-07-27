@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	parameterstore "auto-finance/inernal/parameter-store"
 	autofinance "auto-finance/internal/app/auto-finance"
 	"auto-finance/internal/logger"
+	parameterstore "auto-finance/internal/parameter-store"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"

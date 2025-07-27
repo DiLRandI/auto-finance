@@ -11,7 +11,8 @@ create-deployment-bucket:
 
 build:
 	$(GO_BUILD_CMD) -o bin/bootstrap cmd/auto-finance/main.go
-	zip -j -9 bin/auto-finance.zip bin/bootstrap
+	cp ./config/config.toml bin/config.toml
+	zip -j -9 bin/auto-finance.zip bin/bootstrap bin/config.toml
 	sam build -t deployment/template.yaml
 
 

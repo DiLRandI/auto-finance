@@ -25,8 +25,16 @@ Resources:
         AllowMethods: "'GET,POST,PUT,DELETE'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowOrigin: "'*'"
-    Metadata:
-      SamResourceId: ApiGateway
+  
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: AutoFinanceApiKey
+      Description: API Key for Auto Finance application
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref ApiGateway
+          StageName: prod
 
   LogAutoFinanceFunctionLogGroup:
     DeletionPolicy: Delete
@@ -35,8 +43,6 @@ Resources:
     Properties:
       LogGroupName: !Sub /aws/lambda/${AutoFinanceFunction}
       RetentionInDays: 7
-    Metadata:
-      SamResourceId: LogAutoFinanceFunctionLogGroup
 
   AutoFinanceFunction:
     Type: AWS::Serverless::Function
@@ -74,8 +80,6 @@ Resources:
       Type: String
       Value: TO BE FILLED
       Description: Key for access google sheet api
-    Metadata:
-      SamResourceId: SheetKey
 
 Outputs:
   ApiUrl:
