@@ -1,6 +1,6 @@
 .PHONY: build deploy
 
-VERSION?=local
+VERSION?=$(shell git describe --tags --abbrev=0 HEAD)
 GO_BUILD_CMD = CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -ldflags="-s -w" -ldflags="-X main.version=$(VERSION)" -trimpath
 AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text)
 AWS_REGION ?= $(shell aws configure get region)
