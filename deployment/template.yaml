@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: "Auto Finance Application
+
+  This template defines the resources for the Auto Finance application. It includes
+  Lambda functions, API Gateway, and other necessary components.
+
+  "
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Runtime: provided.al2023
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        LOG_LEVEL: debug
+Resources:
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+    Metadata:
+      SamResourceId: ApiGateway
+
+  LogAutoFinanceFunctionLogGroup:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AutoFinanceFunction}
+      RetentionInDays: 7
+    Metadata:
+      SamResourceId: LogAutoFinanceFunctionLogGroup
+
+  AutoFinanceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: auto-finance
+      Description: Lambda function for Auto Finance application
+      CodeUri: ../bin/auto-finance.zip
+      Handler: bootstrap
+      Environment:
+        Variables:
+          SHEET_KEY:
+            Ref: SheetKey
+      Policies:
+        - Statement:
+            - Sid: AllowSSMParameterAccess
+              Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParametersByPath
+              Resource:
+                Fn::Sub: arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/af/gsheet/key
+      Events:
+        AutoFinance:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGateway
+            Path: /finance
+            Method: post
+
+  SheetKey:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /af/gsheet/key
+      Type: String
+      Value: TO BE FILLED
+      Description: Key for access google sheet api
+    Metadata:
+      SamResourceId: SheetKey
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway URL
+    Value:
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-ApiUrl

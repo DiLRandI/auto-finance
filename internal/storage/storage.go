@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 
-	"auto-finance/inernal/models"
+	"auto-finance/internal/models"
 
 	"github.com/google/uuid"
 )
