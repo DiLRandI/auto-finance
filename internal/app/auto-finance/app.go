@@ -2,12 +2,15 @@ package autofinance
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/rs/zerolog"
 	"google.golang.org/api/sheets/v4"
 )
+
+const testSender = "TEST_SENDER"
 
 type Config struct {
 	Logger zerolog.Logger
@@ -29,26 +32,21 @@ func (app *App) Handler(ctx context.Context, event events.APIGatewayProxyRequest
 	app.logger.Debug().Ctx(ctx).Any("event", event).Msg("Handler started")
 	defer app.logger.Debug().Ctx(ctx).Msg("Handler finished")
 
-	dataToWrite := [][]interface{}{
-		{"Name", "Email", "Date Joined"},
-		{"Dee", "alice@example.com", "2023-01-15"},
-		{"Bob Johnson", "bob@example.com", "2023-02-20"},
-		{"Charlie Brown", "charlie@example.com", "2023-03-10"},
+	var req Request
+	if err := json.Unmarshal([]byte(event.Body), &req); err != nil {
+		app.logger.Error().Err(err).Msg("Failed to unmarshal request")
+		return events.APIGatewayProxyResponse{
+			StatusCode: 400,
+			Body:       "Bad Request",
+		}, nil
 	}
 
-	spreadsheetID := "1sM6wKz2pVlus-fZ8qbDCGmJBYqRxwE3XfhLv1kn1-J4"
-
-	// Replace with the name of the sheet and the range where you want to write data.
-	// For example, "Sheet1!A1" will start appending from cell A1 of Sheet1.
-	sheetRange := "Sheet1!A1"
-
-	// Write the data to the Google Sheet.
-	err := app.writeToSheet(spreadsheetID, sheetRange, dataToWrite)
-	if err != nil {
-		app.logger.Error().Ctx(ctx).Msg("Error writing data to sheet")
+	app.logger.Debug().Ctx(ctx).Any("request", req).Msg("Request received")
+	if req.Test || req.Sender == testSender {
+		app.logger.Info().Msg("Test mode is enabled, skipping sheet write")
 		return events.APIGatewayProxyResponse{
-			StatusCode: 500,
-			Body:       "Internal Server Error",
+			StatusCode: 200,
+			Body:       "Test mode, no action taken",
 		}, nil
 	}
 

@@ -1,9 +1,10 @@
 package leco_test
 
 import (
-	"auto-finance/internal/smsparser/bill/leco"
 	"testing"
 	"time"
+
+	"auto-finance/internal/smsparser/bill/leco"
 
 	"github.com/stretchr/testify/assert"
 )
