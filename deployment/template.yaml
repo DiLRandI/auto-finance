@@ -86,6 +86,15 @@ Resources:
                 - ssm:GetParametersByPath
               Resource:
                 Fn::Sub: arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/af/gsheet/key
+            - Sid: AllowS3BucketAccess
+              Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:ListBucket
+                - s3:ListObjects
+              Resource:
+                - Fn::Sub: arn:${AWS::Partition}:s3:::${ConfigurationBucket}
+                - Fn::Sub: arn:${AWS::Partition}:s3:::${ConfigurationBucket}/*
       Events:
         AutoFinance:
           Type: Api
@@ -105,6 +114,11 @@ Resources:
       Value: TO BE FILLED
       Description: Key for access google sheet api
 
+  ConfigurationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub auto-finance-config-${AWS::AccountId}-${AWS::Region}
+
 Outputs:
   ApiUrl:
     Description: API Gateway URL
@@ -113,3 +127,6 @@ Outputs:
     Export:
       Name:
         Fn::Sub: ${AWS::StackName}-ApiUrl
+  ConfigurationBucketName:
+    Description: Name of the S3 bucket for configuration
+    Value: !Ref ConfigurationBucket
