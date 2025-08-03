@@ -1,3 +1,5 @@
 .aws-sam
 bin
 .key
+config.toml
+config/config.toml
