@@ -77,6 +77,8 @@ Resources:
         Variables:
           SHEET_KEY:
             Ref: SheetKey
+          CONFIGURATION_BUCKET:
+            Ref: ConfigurationBucket
       Policies:
         - Statement:
             - Sid: AllowSSMParameterAccess

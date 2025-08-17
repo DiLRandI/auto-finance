@@ -1,10 +1,11 @@
-.PHONY: build deploy
+.PHONY: build deploy copy-config
 
 VERSION?=$(shell git describe --tags --abbrev=0 HEAD)
 GO_BUILD_CMD = CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -ldflags="-s -w" -ldflags="-X main.version=$(VERSION)" -trimpath
 AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text)
 AWS_REGION ?= $(shell aws configure get region)
 BUCKET_NAME = auto-finance-deployment-$(AWS_ACCOUNT_ID)
+CONFIG_BUCKET = $(shell aws cloudformation describe-stacks --stack-name auto-finance --query "Stacks[0].Outputs[?OutputKey=='ConfigurationBucketName'].OutputValue" --output text)
 
 create-deployment-bucket:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION) --create-bucket-configuration LocationConstraint=$(AWS_REGION)
@@ -12,14 +13,25 @@ create-deployment-bucket:
 build:
 	$(GO_BUILD_CMD) -o bin/bootstrap cmd/auto-finance/main.go
 	mkdir -p ./bin/config
-	@echo "Copying config file to bin directory..."
-	cp ./config/config.toml ./bin/config/config.toml
-	zip -j -9 ./bin/auto-finance.zip ./bin/bootstrap ./bin/config/config.toml
+	zip -j -9 ./bin/auto-finance.zip ./bin/bootstrap
 	sam build -t deployment/template.yaml
 
 clean:
 	rm -rf bin
 	rm -rf .aws-sam
 
-deploy: build
+deploy: build copy-config
 	sam deploy --template-file deployment/template.yaml --stack-name auto-finance --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --s3-bucket $(BUCKET_NAME) --s3-prefix auto-finance --region $(AWS_REGION) --tags "AppManagerCFNStackKey=auto-finance AppManagerCFNStackName=auto-finance"
+
+info:
+	@echo "AWS Account ID: $(AWS_ACCOUNT_ID)"
+	@echo "AWS Region: $(AWS_REGION)"
+	@echo "Deployment Bucket: $(BUCKET_NAME)"
+	@echo "Config Bucket: $(CONFIG_BUCKET)"
+	@echo "Version: $(VERSION)"
+	@echo "Build Command: $(GO_BUILD_CMD)"
+	@echo "SAM Build Command: sam build -t deployment/template.yaml"
+
+copy-config:
+	@echo "Copying config file to S3..."
+	aws s3 cp ./config.toml s3://$(CONFIG_BUCKET)/config.toml
