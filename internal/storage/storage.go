@@ -12,5 +12,5 @@ type MessageStorage[T any] interface {
 }
 
 type ConfigStorage interface {
-	GetConfig(ctx context.Context) ([]byte, error)
+	GetConfig(ctx context.Context, key string) ([]byte, error)
 }

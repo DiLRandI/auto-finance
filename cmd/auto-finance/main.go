@@ -13,10 +13,13 @@ import (
 	"auto-finance/internal/service/message"
 	"auto-finance/internal/smsparser"
 	"auto-finance/internal/smsparser/bill/leco"
+	configStorage "auto-finance/internal/storage/config"
 	ebillStorage "auto-finance/internal/storage/ebill"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
@@ -35,13 +38,23 @@ func main() {
 	logger.Info().Msg("Initializing Auto Finance Lambda function")
 	defer logger.Info().Msg("Auto Finance Lambda function initialization complete")
 
-	appConfig, err := appConfig.LoadConfig()
+	awsConfig, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		panic(fmt.Errorf("failed to load AWS config: %w", err))
+	}
+
+	appConfig, err := appConfig.LoadConfig(configStorage.New(
+		&configStorage.Config{
+			Client: s3.NewFromConfig(awsConfig),
+			Bucket: os.Getenv("CONFIGURATION_BUCKET"),
+		},
+	))
 	if err != nil {
 		logger.Err(err).Msg("Failed to load application config")
 		os.Exit(1)
 	}
 
-	sheetKey, err := loadParameters(ctx)
+	sheetKey, err := loadParameters(ctx, awsConfig)
 	if err != nil {
 		logger.Err(err).Msg("Failed to load parameters from Parameter Store")
 		os.Exit(1)
@@ -76,13 +89,8 @@ func main() {
 	lambda.Start(app.Handler)
 }
 
-func loadParameters(ctx context.Context) (string, error) {
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to load AWS config: %w", err)
-	}
-
-	client := ssm.NewFromConfig(cfg)
+func loadParameters(ctx context.Context, awsConfig aws.Config) (string, error) {
+	client := ssm.NewFromConfig(awsConfig)
 	store := parameterstore.New(client)
 
 	sk := os.Getenv("SHEET_KEY")
