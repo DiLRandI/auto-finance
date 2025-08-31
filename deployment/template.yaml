@@ -9,7 +9,7 @@ Description: "Auto Finance Application
 Parameters:
   ENV:
     Type: String
-    Description: The environment for the stack (dev, test, prod)
+    Description: The environment for the stack
 
 Globals:
   Function:
@@ -29,7 +29,7 @@ Resources:
   ApiGateway:
     Type: AWS::Serverless::Api
     Properties:
-      StageName: prod
+      StageName: stage
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
@@ -37,22 +37,24 @@ Resources:
 
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
+    DependsOn: ApiGateway
     Properties:
       Name: !Sub ${AWS::StackName}-ApiKey
       Description: !Sub API Key for Auto Finance application ${ENV}
       Enabled: true
       StageKeys:
         - RestApiId: !Ref ApiGateway
-          StageName: prod
+          StageName: stage
 
   ApiKeyUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiKey
     Properties:
       UsagePlanName: !Sub ${AWS::StackName}-UsagePlan
       Description: !Sub Usage plan for Auto Finance application ${ENV}
       ApiStages:
         - ApiId: !Ref ApiGateway
-          Stage: prod
+          Stage: stage
       Throttle:
         BurstLimit: 10
         RateLimit: 10
@@ -136,7 +138,7 @@ Outputs:
   ApiUrl:
     Description: API Gateway URL
     Value:
-      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/stage/
     Export:
       Name:
         Fn::Sub: ${AWS::StackName}-ApiUrl
