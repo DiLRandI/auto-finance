@@ -6,6 +6,7 @@ AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output t
 AWS_REGION ?= $(shell aws configure get region)
 BUCKET_NAME = auto-finance-deployment-$(AWS_ACCOUNT_ID)
 CONFIG_BUCKET = $(shell aws cloudformation describe-stacks --stack-name auto-finance --query "Stacks[0].Outputs[?OutputKey=='ConfigurationBucketName'].OutputValue" --output text)
+ENV?=dev
 
 create-deployment-bucket:
 	aws s3api create-bucket --bucket $(BUCKET_NAME) --region $(AWS_REGION) --create-bucket-configuration LocationConstraint=$(AWS_REGION)
@@ -21,7 +22,11 @@ clean:
 	rm -rf .aws-sam
 
 deploy: build copy-config
-	sam deploy --template-file deployment/template.yaml --stack-name auto-finance --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --s3-bucket $(BUCKET_NAME) --s3-prefix auto-finance --region $(AWS_REGION) --tags "AppManagerCFNStackKey=auto-finance AppManagerCFNStackName=auto-finance"
+	sam deploy --template-file deployment/template.yaml --stack-name auto-finance-$(ENV) \
+		--capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --s3-bucket $(BUCKET_NAME) \
+		--s3-prefix auto-finance-$(ENV) --region $(AWS_REGION) \
+		--parameter-overrides ENV=$(ENV) \
+		--tags "AppManagerCFNStackKey=auto-finance-$(ENV) AppManagerCFNStackName=auto-finance-$(ENV)" 
 
 info:
 	@echo "AWS Account ID: $(AWS_ACCOUNT_ID)"
@@ -34,4 +39,4 @@ info:
 
 copy-config:
 	@echo "Copying config file to S3..."
-	aws s3 cp ./config.toml s3://$(CONFIG_BUCKET)/config.toml
+# 	aws s3 cp ./config.toml s3://$(CONFIG_BUCKET)/config.toml

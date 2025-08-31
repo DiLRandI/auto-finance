@@ -6,6 +6,11 @@ Description: "Auto Finance Application
   Lambda functions, API Gateway, and other necessary components.
 
   "
+Parameters:
+  ENV:
+    Type: String
+    Description: The environment for the stack (dev, test, prod)
+
 Globals:
   Function:
     Timeout: 60
@@ -33,8 +38,8 @@ Resources:
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: AutoFinanceApiKey
-      Description: API Key for Auto Finance application
+      Name: !Sub ${AWS::StackName}-ApiKey
+      Description: !Sub API Key for Auto Finance application ${ENV}
       Enabled: true
       StageKeys:
         - RestApiId: !Ref ApiGateway
@@ -43,7 +48,8 @@ Resources:
   ApiKeyUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
     Properties:
-      Description: Usage plan for Auto Finance application
+      UsagePlanName: !Sub ${AWS::StackName}-UsagePlan
+      Description: !Sub Usage plan for Auto Finance application ${ENV}
       ApiStages:
         - ApiId: !Ref ApiGateway
           Stage: prod
@@ -69,8 +75,8 @@ Resources:
   AutoFinanceFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: auto-finance
-      Description: Lambda function for Auto Finance application
+      FunctionName: !Sub ${AWS::StackName}-function
+      Description: !Sub Lambda function for Auto Finance application ${ENV}
       CodeUri: ../bin/auto-finance.zip
       Handler: bootstrap
       Environment:
@@ -111,7 +117,7 @@ Resources:
   SheetKey:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /af/gsheet/key
+      Name: !Sub /${AWS::StackName}/gsheet/key
       Type: String
       Value: TO BE FILLED
       Description: Key for access google sheet api
@@ -119,7 +125,7 @@ Resources:
   ConfigurationBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub auto-finance-config-${AWS::AccountId}-${AWS::Region}
+      BucketName: !Sub config-${ENV}-${AWS::AccountId}-${AWS::Region}
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
