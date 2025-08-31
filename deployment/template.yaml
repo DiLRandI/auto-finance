@@ -34,7 +34,6 @@ Resources:
 
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
-    DependsOn: ApiGateway
     Properties:
       Name: !Sub ${AWS::StackName}-ApiKey
       Description: !Sub API Key for Auto Finance application ${ENV}
@@ -84,6 +83,8 @@ Resources:
             Ref: SheetKey
           CONFIGURATION_BUCKET:
             Ref: ConfigurationBucket
+          APP_CONFIG:
+            Ref: AppConfig
       Policies:
         - Statement:
             - Sid: AllowSSMParameterAccess

@@ -32,3 +32,12 @@ func LoadConfig(storage storage.ConfigStorage) (*Config, error) {
 
 	return &config, nil
 }
+
+func LoadConfigFromTomlBody(data []byte) (*Config, error) {
+	var config Config
+	_, err := toml.Decode(string(data), &config)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
