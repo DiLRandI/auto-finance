@@ -2,8 +2,6 @@ module auto-finance
 
 go 1.24.0
 
-toolchain go1.24.6
-
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/aws/aws-lambda-go v1.49.0

@@ -29,11 +29,8 @@ Resources:
   ApiGateway:
     Type: AWS::Serverless::Api
     Properties:
-      StageName: stage
-      Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        AllowOrigin: "'*'"
+      Name: !Sub ${AWS::StackName}-api
+      StageName: !Sub ${ENV}
 
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
@@ -44,7 +41,7 @@ Resources:
       Enabled: true
       StageKeys:
         - RestApiId: !Ref ApiGateway
-          StageName: stage
+          StageName: !Sub ${ENV}
 
   ApiKeyUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
@@ -54,7 +51,7 @@ Resources:
       Description: !Sub Usage plan for Auto Finance application ${ENV}
       ApiStages:
         - ApiId: !Ref ApiGateway
-          Stage: stage
+          Stage: !Sub ${ENV}
       Throttle:
         BurstLimit: 10
         RateLimit: 10
@@ -109,8 +106,7 @@ Resources:
         AutoFinance:
           Type: Api
           Properties:
-            RestApiId:
-              Ref: ApiGateway
+            RestApiId: !Ref ApiGateway
             Path: /finance
             Method: post
             Auth:
@@ -120,6 +116,14 @@ Resources:
     Type: AWS::SSM::Parameter
     Properties:
       Name: !Sub /${AWS::StackName}/gsheet/key
+      Type: String
+      Value: TO BE FILLED
+      Description: Key for access google sheet api
+
+  AppConfig:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${AWS::StackName}/app/config
       Type: String
       Value: TO BE FILLED
       Description: Key for access google sheet api
@@ -138,7 +142,7 @@ Outputs:
   ApiUrl:
     Description: API Gateway URL
     Value:
-      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/stage/
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ENV}/
     Export:
       Name:
         Fn::Sub: ${AWS::StackName}-ApiUrl
