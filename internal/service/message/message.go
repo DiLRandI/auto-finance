@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	ebillModel "auto-finance/internal/models/ebill"
+	"auto-finance/internal/models/finance"
 	"auto-finance/internal/service/ebill"
 	"auto-finance/internal/smsparser"
 
@@ -70,6 +71,11 @@ func (s *service) PassMessage(ctx context.Context, msg Message) error {
 			}
 
 			return nil
+		case *finance.SampathModel:
+			// Handle Sampath model
+			fmt.Println("===============================================================================")
+			fmt.Printf("%+v\n", v)
+			fmt.Println("===============================================================================")
 		default:
 			s.logger.Warn().Msgf("Unknown object type: %T", v)
 		}

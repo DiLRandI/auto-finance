@@ -13,6 +13,7 @@ import (
 	"auto-finance/internal/service/ebill"
 	"auto-finance/internal/service/message"
 	"auto-finance/internal/smsparser"
+	"auto-finance/internal/smsparser/banking/sampath"
 	"auto-finance/internal/smsparser/bill/leco"
 	ebillStorage "auto-finance/internal/storage/ebill"
 	"auto-finance/internal/utils/retry"
@@ -83,6 +84,7 @@ func main() {
 		Logger: logger,
 		Parsers: []smsparser.UniversalParser{
 			smsparser.NewGenericParserWrapper(leco.New()),
+			smsparser.NewGenericParserWrapper(sampath.New()),
 		},
 		LecoBillService: ebill.NewLECOBillService(&ebill.Config{
 			Logger: logger,
