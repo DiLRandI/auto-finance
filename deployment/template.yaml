@@ -6,6 +6,11 @@ Description: "Auto Finance Application
   Lambda functions, API Gateway, and other necessary components.
 
   "
+Parameters:
+  ENV:
+    Type: String
+    Description: The environment for the stack
+
 Globals:
   Function:
     Timeout: 60
@@ -24,29 +29,28 @@ Resources:
   ApiGateway:
     Type: AWS::Serverless::Api
     Properties:
-      StageName: prod
-      Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        AllowOrigin: "'*'"
+      Name: !Sub ${AWS::StackName}-api
+      StageName: !Sub ${ENV}
 
   ApiKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: AutoFinanceApiKey
-      Description: API Key for Auto Finance application
+      Name: !Sub ${AWS::StackName}-ApiKey
+      Description: !Sub API Key for Auto Finance application ${ENV}
       Enabled: true
       StageKeys:
         - RestApiId: !Ref ApiGateway
-          StageName: prod
+          StageName: !Sub ${ENV}
 
   ApiKeyUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiKey
     Properties:
-      Description: Usage plan for Auto Finance application
+      UsagePlanName: !Sub ${AWS::StackName}-UsagePlan
+      Description: !Sub Usage plan for Auto Finance application ${ENV}
       ApiStages:
         - ApiId: !Ref ApiGateway
-          Stage: prod
+          Stage: !Sub ${ENV}
       Throttle:
         BurstLimit: 10
         RateLimit: 10
@@ -69,14 +73,18 @@ Resources:
   AutoFinanceFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: auto-finance
-      Description: Lambda function for Auto Finance application
+      FunctionName: !Sub ${AWS::StackName}-function
+      Description: !Sub Lambda function for Auto Finance application ${ENV}
       CodeUri: ../bin/auto-finance.zip
       Handler: bootstrap
       Environment:
         Variables:
           SHEET_KEY:
             Ref: SheetKey
+          CONFIGURATION_BUCKET:
+            Ref: ConfigurationBucket
+          APP_CONFIG:
+            Ref: AppConfig
       Policies:
         - Statement:
             - Sid: AllowSSMParameterAccess
@@ -86,12 +94,20 @@ Resources:
                 - ssm:GetParametersByPath
               Resource:
                 Fn::Sub: arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/af/gsheet/key
+            - Sid: AllowS3BucketAccess
+              Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:ListBucket
+                - s3:ListObjects
+              Resource:
+                - Fn::Sub: arn:${AWS::Partition}:s3:::${ConfigurationBucket}
+                - Fn::Sub: arn:${AWS::Partition}:s3:::${ConfigurationBucket}/*
       Events:
         AutoFinance:
           Type: Api
           Properties:
-            RestApiId:
-              Ref: ApiGateway
+            RestApiId: !Ref ApiGateway
             Path: /finance
             Method: post
             Auth:
@@ -100,16 +116,37 @@ Resources:
   SheetKey:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /af/gsheet/key
+      Name: !Sub /${AWS::StackName}/gsheet/key
       Type: String
       Value: TO BE FILLED
       Description: Key for access google sheet api
+
+  AppConfig:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${AWS::StackName}/app/config
+      Type: String
+      Value: TO BE FILLED
+      Description: Key for access google sheet api
+
+  ConfigurationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub config-${ENV}-${AWS::AccountId}-${AWS::Region}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
 Outputs:
   ApiUrl:
     Description: API Gateway URL
     Value:
-      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ENV}/
     Export:
       Name:
         Fn::Sub: ${AWS::StackName}-ApiUrl
+  ConfigurationBucketName:
+    Description: Name of the S3 bucket for configuration
+    Value: !Ref ConfigurationBucket

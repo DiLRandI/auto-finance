@@ -10,3 +10,7 @@ type MessageStorage[T any] interface {
 	// ReadAll(ctx context.Context, pageSize, pageNumber int) ([]T, error)
 	// Delete(ctx context.Context, id uuid.UUID) error
 }
+
+type ConfigStorage interface {
+	GetConfig(ctx context.Context, key string) ([]byte, error)
+}
