@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"auto-finance/internal/models/finance"
 	"auto-finance/internal/smsparser"
@@ -85,6 +86,7 @@ func (p *parser) Parse(sms string) (*finance.SampathModel, error) {
 			Currency:        currency,
 			Merchant:        merchant,
 			Status:          status,
+			SmsDateTime:     time.Now().Format(time.DateTime),
 		}, nil
 	}
 
@@ -119,6 +121,7 @@ func (p *parser) Parse(sms string) (*finance.SampathModel, error) {
 			Currency:        currency,
 			Merchant:        description,
 			Status:          status,
+			SmsDateTime:     time.Now().Format(time.DateTime),
 		}, nil
 	}
 
