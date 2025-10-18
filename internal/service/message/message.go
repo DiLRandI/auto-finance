@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	ebillModel "auto-finance/internal/models/ebill"
+	financeModel "auto-finance/internal/models/finance"
 	"auto-finance/internal/service/ebill"
+	"auto-finance/internal/service/finance"
 	"auto-finance/internal/smsparser"
 
 	"github.com/rs/zerolog"
@@ -21,21 +23,24 @@ type Service interface {
 	PassMessage(ctx context.Context, msg Message) error
 }
 type Config struct {
-	Logger          zerolog.Logger
-	Parsers         []smsparser.UniversalParser
-	LecoBillService ebill.LECOBillService
+	Logger             zerolog.Logger
+	Parsers            []smsparser.UniversalParser
+	LecoBillService    ebill.LECOBillService
+	SampathBankService finance.SampathBillService
 }
 type service struct {
-	logger          zerolog.Logger
-	parsers         []smsparser.UniversalParser
-	lecoBillService ebill.LECOBillService
+	logger             zerolog.Logger
+	parsers            []smsparser.UniversalParser
+	lecoBillService    ebill.LECOBillService
+	sampathBillService finance.SampathBillService
 }
 
 func New(c *Config) Service {
 	return &service{
-		logger:          c.Logger,
-		parsers:         c.Parsers,
-		lecoBillService: c.LecoBillService,
+		logger:             c.Logger,
+		parsers:            c.Parsers,
+		lecoBillService:    c.LecoBillService,
+		sampathBillService: c.SampathBankService,
 	}
 }
 
@@ -67,6 +72,13 @@ func (s *service) PassMessage(ctx context.Context, msg Message) error {
 			if err := s.lecoBillService.HandleLECOBill(ctx, v); err != nil {
 				s.logger.Error().Err(err).Msg("Failed to handle LECO bill")
 				return fmt.Errorf("failed to handle LECO bill: %w", err)
+			}
+
+			return nil
+		case *financeModel.SampathModel:
+			if err := s.sampathBillService.HandleSampathBill(ctx, v); err != nil {
+				s.logger.Error().Err(err).Msg("Failed to handle Sampath bill")
+				return fmt.Errorf("failed to handle Sampath bill: %w", err)
 			}
 
 			return nil

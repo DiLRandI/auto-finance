@@ -1,11 +1,12 @@
 package parameterstore
 
 import (
-	"auto-finance/internal/errors"
-	"auto-finance/internal/utils/retry"
 	"context"
 	"fmt"
 	"time"
+
+	"auto-finance/internal/errors"
+	"auto-finance/internal/utils/retry"
 
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
@@ -53,7 +54,6 @@ func (ps *ParameterStore) GetParameter(ctx context.Context, name string) (string
 		resp, err = ps.client.GetParameter(ctx, &ssm.GetParameterInput{
 			Name: &name,
 		})
-
 		if err != nil {
 			if retry.IsAWSErrorRetryable(err) {
 				return errors.NewRetryableError(
@@ -90,7 +90,6 @@ func (ps *ParameterStore) GetParameterWithRetry(ctx context.Context, name string
 		resp, err = ps.client.GetParameter(ctx, &ssm.GetParameterInput{
 			Name: &name,
 		})
-
 		if err != nil {
 			if retry.IsAWSErrorRetryable(err) {
 				return errors.NewRetryableError(

@@ -60,7 +60,6 @@ func (s *EnhancedGSheetStorage) Save(ctx context.Context, message *models.Messag
 			s.sheetName,
 			&vr,
 		).ValueInputOption("USER_ENTERED").InsertDataOption("INSERT_ROWS").Context(ctx).Do()
-
 		if err != nil {
 			return errors.NewRetryableError(
 				fmt.Errorf("failed to append message to sheet: %w", err),

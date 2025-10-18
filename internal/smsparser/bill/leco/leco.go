@@ -12,10 +12,6 @@ import (
 	"auto-finance/internal/smsparser"
 )
 
-func New() smsparser.SMSParser[*models.ElectricityBill] {
-	return &parser{}
-}
-
 type parser struct{}
 
 var (
@@ -31,6 +27,10 @@ var (
 	ErrInvalidReading = errors.New("invalid reading format")
 	ErrInvalidAmount  = errors.New("invalid amount format")
 )
+
+func New() smsparser.SMSParser[*models.ElectricityBill] {
+	return &parser{}
+}
 
 func (*parser) Parse(sms string) (*models.ElectricityBill, error) {
 	bill := &models.ElectricityBill{}

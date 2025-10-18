@@ -11,10 +11,13 @@ import (
 	"auto-finance/internal/logger"
 	parameterstore "auto-finance/internal/parameter-store"
 	"auto-finance/internal/service/ebill"
+	"auto-finance/internal/service/finance"
 	"auto-finance/internal/service/message"
 	"auto-finance/internal/smsparser"
+	"auto-finance/internal/smsparser/banking/sampath"
 	"auto-finance/internal/smsparser/bill/leco"
 	ebillStorage "auto-finance/internal/storage/ebill"
+	financeStorage "auto-finance/internal/storage/finance"
 	"auto-finance/internal/utils/retry"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -43,7 +46,7 @@ func main() {
 		panic(fmt.Errorf("failed to load AWS config: %w", err))
 	}
 
-	//TODO after observing pricing can remove s3
+	// TODO after observing pricing can remove s3
 
 	// configStore := configStorage.New(&configStorage.Config{
 	// 	Client: s3.NewFromConfig(awsConfig),
@@ -83,13 +86,27 @@ func main() {
 		Logger: logger,
 		Parsers: []smsparser.UniversalParser{
 			smsparser.NewGenericParserWrapper(leco.New()),
+			smsparser.NewGenericParserWrapper(sampath.New()),
 		},
 		LecoBillService: ebill.NewLECOBillService(&ebill.Config{
 			Logger: logger,
-			Storage: ebillStorage.NewEnhanced(&ebillStorage.EnhancedConfig{
+			Storage: ebillStorage.New(&ebillStorage.Config{
 				Service:   srv,
 				SheetID:   appConfig.LecoSheetConfig.SheetID,
 				SheetName: appConfig.LecoSheetConfig.SheetName,
+				GoogleRetryConfig: &retry.GoogleRetryConfig{
+					MaxAttempts:    3,
+					InitialBackoff: 1 * time.Second,
+					MaxBackoff:     5 * time.Second,
+				},
+			}),
+		}),
+		SampathBankService: finance.NewSampathBillService(&finance.Config{
+			Logger: logger,
+			Storage: financeStorage.NewSampathStorage(&financeStorage.SampathConfig{
+				Service:   srv,
+				SheetID:   appConfig.FinanceSheetConfig.SheetID,
+				SheetName: appConfig.FinanceSheetConfig.SheetName,
 				GoogleRetryConfig: &retry.GoogleRetryConfig{
 					MaxAttempts:    3,
 					InitialBackoff: 1 * time.Second,

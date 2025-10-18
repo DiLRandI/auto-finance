@@ -93,7 +93,7 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParametersByPath
               Resource:
-                Fn::Sub: arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/af/gsheet/key
+                - Fn::Sub: arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/*
             - Sid: AllowS3BucketAccess
               Effect: Allow
               Action:
