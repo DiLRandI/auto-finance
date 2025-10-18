@@ -1,4 +1,4 @@
-package ebill
+package finance
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"auto-finance/internal/errors"
-	"auto-finance/internal/models/ebill"
+	"auto-finance/internal/models/finance"
 	"auto-finance/internal/utils/retry"
 
 	"auto-finance/internal/storage"
@@ -14,30 +14,30 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-// LECOStorage provides LECO bill storage with retry capabilities
-type LECOStorage struct {
+// SmpathStorage provides LECO bill storage with retry capabilities
+type SmpathStorage struct {
 	service           *sheets.Service
 	sheetID           string
 	sheetName         string
 	googleRetryConfig retry.GoogleRetryConfig
 }
 
-// Config contains configuration for enhanced LECO bill storage
-type Config struct {
+// SampathConfig contains configuration for enhanced LECO bill storage
+type SampathConfig struct {
 	Service           *sheets.Service
 	SheetID           string
 	SheetName         string
 	GoogleRetryConfig *retry.GoogleRetryConfig
 }
 
-// New creates a new enhanced LECO bill storage with retry capabilities
-func New(config *Config) storage.MessageStorage[*ebill.ElectricityBill] {
+// NewSampathStorage creates a new enhanced LECO bill storage with retry capabilities
+func NewSampathStorage(config *SampathConfig) storage.MessageStorage[*finance.SampathModel] {
 	retryConfig := retry.DefaultGoogleRetryConfig()
 	if config.GoogleRetryConfig != nil {
 		retryConfig = *config.GoogleRetryConfig
 	}
 
-	return &LECOStorage{
+	return &SmpathStorage{
 		service:           config.Service,
 		sheetID:           config.SheetID,
 		sheetName:         config.SheetName,
@@ -46,31 +46,15 @@ func New(config *Config) storage.MessageStorage[*ebill.ElectricityBill] {
 }
 
 // Save saves an electricity bill to Google Sheets with retry logic
-func (s *LECOStorage) Save(ctx context.Context, bill *ebill.ElectricityBill) error {
+func (s *SmpathStorage) Save(ctx context.Context, bill *finance.SampathModel) error {
 	operation := func() error {
 		var vr sheets.ValueRange
 		vr.Values = append(vr.Values, []interface{}{
-			bill.AccountNumber,
-			bill.AccountType,
-			bill.AccountName,
-			bill.ReadOn,
-			bill.ImportPrevious,
-			bill.ImportCurrent,
-			bill.ImportUnits,
-			bill.ExportPrevious,
-			bill.ExportCurrent,
-			bill.ExportUnits,
-			bill.NetUnits,
-			bill.NetUnitsType,
-			bill.MonthlyBill,
-			bill.OtherCharges,
-			bill.SSCL,
-			bill.OpeningBalance,
-			bill.OpeningBalanceDate,
-			bill.TotalPayable,
-			bill.LastPaymentAmount,
-			bill.LastPaymentDate,
-			bill.LastGenPayment,
+			bill.TransactionType,
+			bill.Identifier,
+			bill.Merchant,
+			bill.Amount,
+			bill.Currency,
 		})
 
 		_, err := s.service.Spreadsheets.Values.Append(
@@ -80,7 +64,7 @@ func (s *LECOStorage) Save(ctx context.Context, bill *ebill.ElectricityBill) err
 		).ValueInputOption("USER_ENTERED").InsertDataOption("INSERT_ROWS").Context(ctx).Do()
 		if err != nil {
 			return errors.NewRetryableError(
-				fmt.Errorf("failed to append electricity bill to sheet: %w", err),
+				fmt.Errorf("failed to append sampath statement to sheet: %w", err),
 				errors.ErrorTypeGoogle,
 				2*time.Second,
 				3,
