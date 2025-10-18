@@ -113,7 +113,7 @@ func (p *parser) Parse(sms string) (*finance.SampathModel, error) {
 		}
 
 		return &finance.SampathModel{
-			TransactionType: finance.TransactionTypeCard,
+			TransactionType: finance.TransactionTypeOnline,
 			Identifier:      accountDigits,
 			Amount:          amount,
 			Currency:        currency,
