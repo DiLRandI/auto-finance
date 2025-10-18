@@ -52,9 +52,10 @@ func (s *SmpathStorage) Save(ctx context.Context, bill *finance.SampathModel) er
 		vr.Values = append(vr.Values, []interface{}{
 			bill.TransactionType,
 			bill.Identifier,
-			bill.Merchant,
 			bill.Amount,
 			bill.Currency,
+			bill.Merchant,
+			bill.Status,
 		})
 
 		_, err := s.service.Spreadsheets.Values.Append(
