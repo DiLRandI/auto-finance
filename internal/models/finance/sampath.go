@@ -14,4 +14,5 @@ type SampathModel struct {
 	Amount          float64         `json:"amount"`
 	Currency        string          `json:"currency"`
 	Merchant        string          `json:"merchant"`
+	Status          string          `json:"status,omitempty"`
 }
