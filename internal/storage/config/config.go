@@ -1,12 +1,13 @@
 package config
 
 import (
-	"auto-finance/internal/errors"
-	"auto-finance/internal/utils/retry"
 	"context"
 	"fmt"
 	"io"
 	"time"
+
+	"auto-finance/internal/errors"
+	"auto-finance/internal/utils/retry"
 
 	"auto-finance/internal/storage"
 
@@ -53,7 +54,6 @@ func (ec *EnhancedConfiguration) GetConfig(ctx context.Context, key string) ([]b
 			Bucket: aws.String(ec.Bucket),
 			Key:    aws.String(key),
 		})
-
 		if err != nil {
 			return errors.NewRetryableError(
 				fmt.Errorf("failed to get config from bucket %s with key %s: %w", ec.Bucket, key, err),

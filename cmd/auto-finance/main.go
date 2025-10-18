@@ -44,7 +44,7 @@ func main() {
 		panic(fmt.Errorf("failed to load AWS config: %w", err))
 	}
 
-	//TODO after observing pricing can remove s3
+	// TODO after observing pricing can remove s3
 
 	// configStore := configStorage.New(&configStorage.Config{
 	// 	Client: s3.NewFromConfig(awsConfig),

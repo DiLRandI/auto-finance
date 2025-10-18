@@ -1,12 +1,13 @@
 package ebill
 
 import (
-	"auto-finance/internal/errors"
-	"auto-finance/internal/models/ebill"
-	"auto-finance/internal/utils/retry"
 	"context"
 	"fmt"
 	"time"
+
+	"auto-finance/internal/errors"
+	"auto-finance/internal/models/ebill"
+	"auto-finance/internal/utils/retry"
 
 	"auto-finance/internal/storage"
 
@@ -77,7 +78,6 @@ func (s *EnhancedLECOStorage) Save(ctx context.Context, bill *ebill.ElectricityB
 			s.sheetName,
 			&vr,
 		).ValueInputOption("USER_ENTERED").InsertDataOption("INSERT_ROWS").Context(ctx).Do()
-
 		if err != nil {
 			return errors.NewRetryableError(
 				fmt.Errorf("failed to append electricity bill to sheet: %w", err),

@@ -1,8 +1,9 @@
 package config
 
 import (
-	"auto-finance/internal/storage"
 	"context"
+
+	"auto-finance/internal/storage"
 
 	"github.com/BurntSushi/toml"
 )
