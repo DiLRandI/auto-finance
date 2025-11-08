@@ -26,7 +26,7 @@ deploy: build copy-config
 		--capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --s3-bucket $(BUCKET_NAME) \
 		--s3-prefix auto-finance-$(ENV) --region $(AWS_REGION) \
 		--parameter-overrides ENV=$(ENV) \
-		--tags "AppManagerCFNStackKey=auto-finance-$(ENV) AppManagerCFNStackName=auto-finance-$(ENV)" 
+		--tags "AppManagerCFNStackKey=auto-finance-$(ENV) AppManagerCFNStackName=auto-finance-$(ENV) Application=auto-finance-$(ENV) Environment=$(ENV)" 
 
 info:
 	@echo "AWS Account ID: $(AWS_ACCOUNT_ID)"

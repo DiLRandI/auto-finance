@@ -15,4 +15,5 @@ type SampathModel struct {
 	Currency        string          `json:"currency"`
 	Merchant        string          `json:"merchant"`
 	Status          string          `json:"status,omitempty"`
+	SmsDateTime     string          `json:"sms_date_time,omitempty"`
 }

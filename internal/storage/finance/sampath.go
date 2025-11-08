@@ -50,12 +50,13 @@ func (s *SmpathStorage) Save(ctx context.Context, bill *finance.SampathModel) er
 	operation := func() error {
 		var vr sheets.ValueRange
 		vr.Values = append(vr.Values, []interface{}{
-			bill.TransactionType,
-			bill.Identifier,
+			bill.SmsDateTime,
 			bill.Amount,
 			bill.Currency,
-			bill.Merchant,
 			bill.Status,
+			bill.TransactionType,
+			bill.Identifier,
+			bill.Merchant,
 		})
 
 		_, err := s.service.Spreadsheets.Values.Append(
