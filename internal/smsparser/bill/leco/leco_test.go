@@ -19,6 +19,58 @@ func TestParser_Parse(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			name: "new 2025 format with iso dates and renamed keys",
+			sms: `LECO BILL 2025 October 
+ A/N: 0102881677 DOMESTIC-01
+ PERERA A B C
+ 
+ Last Payment: Rs.950.50 on 2025-01-03
+ Current Outstanding amount: Rs.-12,345.67
+ 
+ Reading Date: 2025-10-05
+ Import Reading: 8120 - 7980 = 140
+ Export Reading: 30200 - 29575 = 625
+ Net Units: 5
+ Fixed Charge: Rs.100.00
+ Other Charges: Rs.12.34
+ Adjustments: Rs.0.00
+ SSC Levy: Rs.1.45
+ Monthly Bill: Rs.105.25
+ Total Due: Rs.-12,240.42
+ Due Date: 2025-10-25
+ Last Amount Paid for Generation: Rs.9,800.00
+ This Month Generation Units: 430
+ This Month Generation Amount: Rs.9,950.00`,
+			want: func() *models.ElectricityBill {
+				readOn, _ := time.Parse("2006-01-02", "2025-10-05")
+				lastPayment, _ := time.Parse("2006-01-02", "2025-01-03")
+				return &models.ElectricityBill{
+					AccountNumber:      "0102881677",
+					AccountType:        "DOMESTIC-01",
+					AccountName:        "PERERA A B C",
+					ReadOn:             readOn,
+					ImportPrevious:     7980,
+					ImportCurrent:      8120,
+					ImportUnits:        140,
+					ExportPrevious:     29575,
+					ExportCurrent:      30200,
+					ExportUnits:        625,
+					NetUnits:           5,
+					NetUnitsType:       "",
+					MonthlyBill:        105.25,
+					OtherCharges:       12.34,
+					SSCL:               1.45,
+					OpeningBalance:     -12345.67,
+					OpeningBalanceDate: time.Time{},
+					TotalPayable:       -12240.42,
+					LastPaymentAmount:  950.50,
+					LastPaymentDate:    lastPayment,
+					LastGenPayment:     9800.00,
+				}
+			}(),
+			wantErr: false,
+		},
+		{
 			name: "valid complete SMS with all fields",
 			sms: `A/N: 123456789 (Domestic)
 Account Name Example

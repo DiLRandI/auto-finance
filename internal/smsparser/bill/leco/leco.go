@@ -15,11 +15,12 @@ import (
 type parser struct{}
 
 var (
-	dateLayout    = "02-Jan-06"
-	amountRegex   = regexp.MustCompile(`[-+]?[\d,]+(?:\.\d+)?`)
-	readingRegex  = regexp.MustCompile(`(\d+)\s*-\s*(\d+)\s*=\s*(\d+)`)
-	netUnitsRegex = regexp.MustCompile(`([-\d]+)\s*\((\w+)\)`)
-	accountRegex  = regexp.MustCompile(`(\d+)\s*(?:\(([^)]+)\))?`)
+	dateLayout     = "02-Jan-06"
+	isoDateLayouts = []string{"2006-01-02", "2006/01/02"}
+	amountRegex    = regexp.MustCompile(`[-+]?[\d,]+(?:\.\d+)?`)
+	readingRegex   = regexp.MustCompile(`(\d+)\s*-\s*(\d+)\s*=\s*(\d+)`)
+	netUnitsRegex  = regexp.MustCompile(`([-\d]+)(?:\s*\(([^)]+)\))?`)
+	accountRegex   = regexp.MustCompile(`(\d+)\s*(?:\(([^)]+)\)|([A-Za-z][\w\s/-]*))?`)
 
 	// Custom errors
 	ErrInvalidValue   = errors.New("invalid value")
@@ -39,6 +40,7 @@ func (*parser) Parse(sms string) (*models.ElectricityBill, error) {
 	var (
 		parseErr        error
 		pendingAcctName bool
+		monthlyBillSet  bool
 	)
 
 	for _, line := range lines {
@@ -70,33 +72,47 @@ func (*parser) Parse(sms string) (*models.ElectricityBill, error) {
 
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
+		normalizedKey := strings.ToLower(key)
 
 		var err error
-		switch key {
-		case "A/N":
+		switch normalizedKey {
+		case "a/n":
 			err = parseAccount(value, bill)
 			pendingAcctName = (err == nil)
-		case "Read On":
+		case "read on", "reading date":
 			bill.ReadOn, err = parseDate(value)
-		case "Imp":
+		case "imp", "import", "import reading":
 			err = parseReading(value, &bill.ImportPrevious, &bill.ImportCurrent, &bill.ImportUnits)
-		case "Exp":
+		case "exp", "export", "export reading":
 			err = parseReading(value, &bill.ExportPrevious, &bill.ExportCurrent, &bill.ExportUnits)
-		case "Net Units":
+		case "net units":
 			err = parseNetUnits(value, &bill.NetUnits, &bill.NetUnitsType)
-		case "Monthly Bill":
+		case "monthly bill":
 			bill.MonthlyBill, err = parseAmount(value)
-		case "Other Charges":
+			if err == nil {
+				monthlyBillSet = true
+			}
+		case "fixed charge":
+			if !monthlyBillSet {
+				bill.MonthlyBill, err = parseAmount(value)
+				if err == nil {
+					monthlyBillSet = true
+				}
+			}
+		case "other charges":
 			bill.OtherCharges, err = parseAmount(value)
-		case "SSCL":
+		case "sscl", "ssc levy":
 			bill.SSCL, err = parseAmount(value)
-		case "Opening Balance":
+		case "opening balance":
 			bill.OpeningBalance, bill.OpeningBalanceDate, err = parseBalanceWithDate(value)
-		case "Total Payable":
+		case "current outstanding amount":
+			bill.OpeningBalance, err = parseAmount(value)
+			bill.OpeningBalanceDate = time.Time{}
+		case "total payable", "total due":
 			bill.TotalPayable, err = parseAmount(value)
-		case "Last Payment":
+		case "last payment":
 			bill.LastPaymentAmount, bill.LastPaymentDate, err = parsePayment(value)
-		case "Last Amount Paid for Generation":
+		case "last amount paid for generation":
 			bill.LastGenPayment, err = parseAmount(value)
 		}
 
@@ -129,13 +145,26 @@ func parseAccount(s string, bill *models.ElectricityBill) error {
 	}
 
 	bill.AccountNumber = matches[1]
-	if len(matches) > 2 {
-		bill.AccountType = matches[2]
+	var accountType string
+	if len(matches) > 2 && strings.TrimSpace(matches[2]) != "" {
+		accountType = matches[2]
+	} else if len(matches) > 3 {
+		accountType = matches[3]
 	}
+	bill.AccountType = strings.TrimSpace(accountType)
 	return nil
 }
 
 func parseDate(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	for _, layout := range isoDateLayouts {
+		if len(s) >= len(layout) && (strings.Contains(s, "-") || strings.Contains(s, "/")) {
+			if t, err := time.Parse(layout, s); err == nil {
+				return t, nil
+			}
+		}
+	}
+
 	parts := strings.Split(s, "-")
 	if len(parts) != 3 {
 		return time.Time{}, fmt.Errorf("%w: expected DD-MMM-YY format", ErrInvalidDate)
@@ -162,27 +191,36 @@ func parseReading(s string, prev, curr, units *int) error {
 	}
 
 	var err error
-	*prev, err = strconv.Atoi(matches[1])
+	first, err := strconv.Atoi(matches[1])
 	if err != nil {
 		return fmt.Errorf("%w: previous reading", ErrInvalidReading)
 	}
 
-	*curr, err = strconv.Atoi(matches[2])
+	second, err := strconv.Atoi(matches[2])
 	if err != nil {
 		return fmt.Errorf("%w: current reading", ErrInvalidReading)
 	}
 
-	*units, err = strconv.Atoi(matches[3])
+	parsedUnits, err := strconv.Atoi(matches[3])
 	if err != nil {
 		return fmt.Errorf("%w: units calculation", ErrInvalidReading)
 	}
 
+	if first <= second {
+		*prev = first
+		*curr = second
+	} else {
+		*prev = second
+		*curr = first
+	}
+
+	*units = parsedUnits
 	return nil
 }
 
 func parseNetUnits(s string, units *int, unitType *string) error {
 	matches := netUnitsRegex.FindStringSubmatch(s)
-	if len(matches) != 3 {
+	if len(matches) < 2 {
 		return fmt.Errorf("%w: net units format", ErrInvalidValue)
 	}
 
@@ -192,7 +230,11 @@ func parseNetUnits(s string, units *int, unitType *string) error {
 		return fmt.Errorf("%w: net units value", ErrInvalidValue)
 	}
 
-	*unitType = matches[2]
+	if len(matches) > 2 {
+		*unitType = strings.TrimSpace(matches[2])
+	} else {
+		*unitType = ""
+	}
 	return nil
 }
 
@@ -265,9 +307,5 @@ func validateBill(bill *models.ElectricityBill) error {
 	if bill.MonthlyBill < 0 {
 		return errors.New("monthly bill must be non-negative")
 	}
-	if bill.TotalPayable < 0 {
-		return errors.New("total payable must be non-negative")
-	}
-
 	return nil
 }
