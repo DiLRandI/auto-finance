@@ -57,6 +57,8 @@ func (s *SmpathStorage) Save(ctx context.Context, bill *finance.SampathModel) er
 			bill.TransactionType,
 			bill.Identifier,
 			bill.Merchant,
+			bill.AvailableBalance,
+			bill.AvailableBalanceCurrency,
 		})
 
 		_, err := s.service.Spreadsheets.Values.Append(

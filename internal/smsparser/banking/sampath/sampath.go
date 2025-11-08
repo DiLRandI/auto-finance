@@ -22,6 +22,8 @@ var (
 	// Captures: [1] currency, [2] amount, [3] txn type token, [4] account digits,
 	// [5] channel token ("for" vs "via ATM at"), [6] description/merchant.
 	accountTxnRegex = regexp.MustCompile(`(?i)^([A-Z]{3})\s+([\d,.]+)\s+(credited\s+to|debited\s+from)\s+AC\s+\*\*(\d{3,5})\s+(via\s+ATM\s+at|for)\s+(.+?)(?:\s+(?:For\s+Inq|For\s+Enq|Enq)\b.*)?$`)
+	// avlBalRegex captures "Avl Bal <currency> <amount>" fragments present in credit card SMS alerts.
+	avlBalRegex = regexp.MustCompile(`(?i)Avl\s+Bal\s+([A-Z]{3})\s+([\d,.]+|\.00)`)
 )
 
 type parser struct{}
@@ -45,14 +47,10 @@ func (p *parser) Parse(sms string) (*finance.SampathModel, error) {
 		cardDigits := matches[1]
 		statusCode := matches[2]
 		currency := strings.ToUpper(matches[3])
-		amtStr := matches[4]
+		amtStr := normalizeAmount(matches[4])
 		merchant := strings.TrimSpace(matches[5])
 
 		// Normalize amount string and convert to float.
-		amtStr = strings.ReplaceAll(amtStr, ",", "")
-		if amtStr == ".00" || amtStr == ".0" || amtStr == "." {
-			amtStr = "0.00"
-		}
 		amount, err := strconv.ParseFloat(amtStr, 64)
 		if err != nil {
 			return nil, err
@@ -72,7 +70,7 @@ func (p *parser) Parse(sms string) (*finance.SampathModel, error) {
 		// Merchant strings sometimes include tildes (~) which represent
 		// separators in the SMS. Replace with spaces for readability.
 		merchant = strings.ReplaceAll(merchant, "~", " ")
-		return &finance.SampathModel{
+		model := &finance.SampathModel{
 			TransactionType: finance.TransactionTypeCard,
 			Identifier:      cardDigits,
 			Amount:          amount,
@@ -80,7 +78,9 @@ func (p *parser) Parse(sms string) (*finance.SampathModel, error) {
 			Merchant:        merchant,
 			Status:          status,
 			SmsDateTime:     time.Now().Format(time.DateTime),
-		}, nil
+		}
+		applyAvailableBalance(model, cleaned)
+		return model, nil
 	}
 
 	if matches := cardCreditRegex.FindStringSubmatch(cleaned); len(matches) == 5 {
@@ -93,7 +93,7 @@ func (p *parser) Parse(sms string) (*finance.SampathModel, error) {
 		}
 		description := strings.ReplaceAll(strings.TrimSpace(matches[4]), "~", " ")
 
-		return &finance.SampathModel{
+		model := &finance.SampathModel{
 			TransactionType: finance.TransactionTypeCard,
 			Identifier:      cardDigits,
 			Amount:          amount,
@@ -101,20 +101,22 @@ func (p *parser) Parse(sms string) (*finance.SampathModel, error) {
 			Merchant:        description,
 			Status:          "credit",
 			SmsDateTime:     time.Now().Format(time.DateTime),
-		}, nil
+		}
+		applyAvailableBalance(model, cleaned)
+		return model, nil
 	}
 
 	// If no card match, attempt to match an account transaction (credit or debit).
 	// matches: [0]=full, [1]=currency, [2]=amount, [3]=txnType, [4]=accountDigits, [5]=channel, [6]=description
 	if matches := accountTxnRegex.FindStringSubmatch(cleaned); len(matches) == 7 {
 		currency := strings.ToUpper(matches[1])
-		amtStr := matches[2]
+		amtStr := normalizeAmount(matches[2])
 		txnType := strings.ToLower(strings.TrimSpace(matches[3]))
 		accountDigits := matches[4]
 		channel := strings.ToLower(strings.TrimSpace(matches[5]))
 		description := strings.TrimSpace(matches[6])
 
-		amount, err := strconv.ParseFloat(strings.ReplaceAll(amtStr, ",", ""), 64)
+		amount, err := strconv.ParseFloat(amtStr, 64)
 		if err != nil {
 			return nil, err
 		}
@@ -155,4 +157,25 @@ func normalizeAmount(raw string) string {
 		return "0.00"
 	}
 	return clean
+}
+
+func applyAvailableBalance(model *finance.SampathModel, sms string) {
+	if currency, amount, ok := parseAvailableBalance(sms); ok {
+		model.AvailableBalanceCurrency = currency
+		model.AvailableBalance = amount
+	}
+}
+
+func parseAvailableBalance(sms string) (string, float64, bool) {
+	matches := avlBalRegex.FindStringSubmatch(sms)
+	if len(matches) != 3 {
+		return "", 0, false
+	}
+
+	currency := strings.ToUpper(matches[1])
+	amount, err := strconv.ParseFloat(normalizeAmount(matches[2]), 64)
+	if err != nil {
+		return "", 0, false
+	}
+	return currency, amount, true
 }

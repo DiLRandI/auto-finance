@@ -9,11 +9,13 @@ const (
 )
 
 type SampathModel struct {
-	TransactionType TransactionType `json:"transaction_type"`
-	Identifier      string          `json:"identifier"`
-	Amount          float64         `json:"amount"`
-	Currency        string          `json:"currency"`
-	Merchant        string          `json:"merchant"`
-	Status          string          `json:"status,omitempty"`
-	SmsDateTime     string          `json:"sms_date_time,omitempty"`
+	TransactionType          TransactionType `json:"transaction_type"`
+	Identifier               string          `json:"identifier"`
+	Amount                   float64         `json:"amount"`
+	Currency                 string          `json:"currency"`
+	Merchant                 string          `json:"merchant"`
+	Status                   string          `json:"status,omitempty"`
+	SmsDateTime              string          `json:"sms_date_time,omitempty"`
+	AvailableBalance         float64         `json:"available_balance,omitempty"`
+	AvailableBalanceCurrency string          `json:"available_balance_currency,omitempty"`
 }
